@@ -761,6 +761,15 @@ dd {
   white-space: pre-wrap;
 }
 
+.submission-meta {
+  display: block;
+  margin: 7px 0 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .comment-form {
   display: grid;
   grid-template-columns: 125px 1fr auto;

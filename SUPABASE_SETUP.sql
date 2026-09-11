@@ -34,8 +34,13 @@ create table if not exists public.site_feedback (
 );
 
 -- Privacy-friendly access records are stored with visitor_name set to
--- '__portfolio_visit_v1__'. They contain device/browser details only;
--- no raw IP address or exact location is collected by the website.
+-- '__portfolio_visit_v1__'. They may contain device/browser details, a masked
+-- public IP, and an IP-based approximate city/region. Raw IP addresses, exact
+-- coordinates, and browser GPS data are not stored by the website.
+
+-- Feedback and comment text use a versioned JSON envelope so their masked IP,
+-- approximate location, device, and browser can be shown only in admin mode.
+-- This keeps the existing table columns and remains compatible with older rows.
 
 -- The current project's RLS policies are already configured in Supabase.
 -- Keep RLS enabled and never expose a service-role key in website source.

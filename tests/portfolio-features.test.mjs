@@ -26,11 +26,17 @@ test("supports persistent light and dark themes", () => {
   assert.match(layout, /localStorage\.getItem\("portfolio_theme"\)/);
 });
 
-test("supports admin-managed skills and private access history", () => {
+test("supports admin-managed skills and privacy-safe access history", () => {
   assert.match(component, /SKILL_TYPE = "Skill"/);
   assert.match(component, /submitSkill/);
   assert.match(component, /Access history/);
-  assert.match(component, /No IP addresses or exact/);
+  assert.match(component, /maskPublicIp/);
+  assert.match(component, /https:\/\/ipapi\.co\/json\//);
+  assert.match(component, /approximateLocation/);
+  assert.match(component, /SUBMISSION_MARKER/);
+  assert.match(component, /parseStoredSubmission/);
+  assert.match(component, /visitorDetails/);
+  assert.match(component, /exact GPS and full IP addresses/);
 });
 
 test("loads portfolio images without avoidable mobile work", () => {

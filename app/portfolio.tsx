@@ -32,8 +32,11 @@ const SUPABASE_KEY = "sb_publishable__PJ-SXvQ8Jz2SUF3rqdRTA_hd-DREP-";
 const SESSION_KEY = "portfolio_admin_session";
 const THEME_KEY = "portfolio_theme";
 const VISIT_SESSION_KEY = "portfolio_visit_recorded_v1";
+const VISITOR_SESSION_ID_KEY = "portfolio_visitor_session_id_v1";
+const VISITOR_NETWORK_SESSION_KEY = "portfolio_visitor_network_v1";
 const FEEDBACK_SESSION_KEY = "portfolio_feedback_sent_v1";
 const VISIT_MARKER = "__portfolio_visit_v1__";
+const SUBMISSION_MARKER = "__portfolio_submission_v1__";
 const SKILL_TYPE = "Skill";
 const SKILL_META_TYPE = "SkillMeta";
 const SKILL_META_TITLE = "__skills_initialized__";
@@ -82,6 +85,7 @@ type ActivityComment = {
   visitor_name: string;
   comment: string;
   created_at: string;
+  visitorDetails?: VisitorDetails;
 };
 
 type SiteFeedback = {
@@ -89,6 +93,15 @@ type SiteFeedback = {
   visitor_name: string;
   feedback: string;
   created_at: string;
+  visitorDetails?: VisitorDetails;
+};
+
+type VisitorDetails = {
+  sessionId: string;
+  maskedIp: string;
+  approximateLocation: string;
+  device: string;
+  browser: string;
 };
 
 type PortfolioSkill = {
@@ -111,6 +124,22 @@ type VisitDetails = {
   viewport: string;
   source: string;
   path: string;
+  maskedIp: string;
+  approximateLocation: string;
+};
+
+type IpLocationResponse = {
+  ip?: string;
+  city?: string;
+  region?: string;
+  country_name?: string;
+  error?: boolean;
+};
+
+type StoredSubmission = {
+  marker: string;
+  message: string;
+  visitor: VisitorDetails;
 };
 
 type VisitLog = SiteFeedback & {
@@ -249,6 +278,131 @@ function detectDevice(userAgent: string, width: number) {
   return "Desktop";
 }
 
+function maskPublicIp(value: string) {
+  const ip = value.trim();
+  if (!ip) return "Unavailable";
+
+  if (ip.includes(".")) {
+    const parts = ip.split(".");
+    return parts.length === 4
+      ? parts.slice(0, 2).concat("xxx", "xxx").join(".")
+      : "Unavailable";
+  }
+
+  if (ip.includes(":")) {
+    const parts = ip.split(":").filter(Boolean);
+    return parts.length > 0
+      ? parts.slice(0, 3).concat("xxxx", "xxxx").join(":")
+      : "Unavailable";
+  }
+
+  return "Unavailable";
+}
+
+function getVisitorSessionId() {
+  const existing = sessionStorage.getItem(VISITOR_SESSION_ID_KEY);
+  if (existing) return existing;
+
+  const nextId =
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  sessionStorage.setItem(VISITOR_SESSION_ID_KEY, nextId);
+  return nextId;
+}
+
+async function getApproximateNetworkLocation() {
+  const cached = sessionStorage.getItem(VISITOR_NETWORK_SESSION_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached) as Pick<
+        VisitorDetails,
+        "maskedIp" | "approximateLocation"
+      >;
+    } catch {
+      sessionStorage.removeItem(VISITOR_NETWORK_SESSION_KEY);
+    }
+  }
+
+  try {
+    const response = await fetchWithTimeout(
+      "https://ipapi.co/json/",
+      {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      },
+      5000,
+    );
+    const data = (await response.json()) as IpLocationResponse;
+    if (!response.ok || data.error) throw new Error("Location unavailable.");
+
+    const locationParts = [data.city, data.region, data.country_name]
+      .map((part) => part?.trim())
+      .filter((part): part is string => Boolean(part));
+
+    const result = {
+      maskedIp: maskPublicIp(data.ip || ""),
+      approximateLocation:
+        [...new Set(locationParts)].join(", ") || "Unavailable",
+    };
+    sessionStorage.setItem(VISITOR_NETWORK_SESSION_KEY, JSON.stringify(result));
+    return result;
+  } catch {
+    return {
+      maskedIp: "Unavailable",
+      approximateLocation: "Unavailable",
+    };
+  }
+}
+
+async function getVisitorDetails(): Promise<VisitorDetails> {
+  const network = await getApproximateNetworkLocation();
+  return {
+    sessionId: getVisitorSessionId(),
+    maskedIp: network.maskedIp,
+    approximateLocation: network.approximateLocation,
+    device: detectDevice(navigator.userAgent, window.innerWidth),
+    browser: detectBrowser(navigator.userAgent),
+  };
+}
+
+function parseStoredSubmission(value: string) {
+  try {
+    const parsed = JSON.parse(value) as Partial<StoredSubmission>;
+    if (
+      parsed.marker !== SUBMISSION_MARKER ||
+      typeof parsed.message !== "string" ||
+      !parsed.visitor
+    ) {
+      return null;
+    }
+    return {
+      message: parsed.message,
+      visitorDetails: parsed.visitor,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseComment(row: ActivityComment): ActivityComment {
+  const stored = parseStoredSubmission(row.comment);
+  return stored
+    ? { ...row, comment: stored.message, visitorDetails: stored.visitorDetails }
+    : row;
+}
+
+function parseFeedback(row: SiteFeedback): SiteFeedback {
+  const stored = parseStoredSubmission(row.feedback);
+  return stored
+    ? {
+        ...row,
+        feedback: stored.message,
+        visitorDetails: stored.visitorDetails,
+      }
+    : row;
+}
+
 function parseVisit(row: SiteFeedback): VisitLog | null {
   try {
     const details = JSON.parse(row.feedback) as Partial<VisitDetails>;
@@ -263,6 +417,10 @@ function parseVisit(row: SiteFeedback): VisitLog | null {
         viewport: String(details.viewport || "Unknown"),
         source: String(details.source || "Direct"),
         path: String(details.path || "/"),
+        maskedIp: String(details.maskedIp || "Not recorded"),
+        approximateLocation: String(
+          details.approximateLocation || "Not recorded",
+        ),
       },
     };
   } catch {
@@ -413,7 +571,9 @@ export default function Portfolio() {
         { headers: apiHeaders(), cache: "no-store" },
       );
       const data = await response.json();
-      if (response.ok) setComments(data as ActivityComment[]);
+      if (response.ok) {
+        setComments((data as ActivityComment[]).map(parseComment));
+      }
     } catch {
       /* Comments stay optional if the connection is unavailable. */
     }
@@ -444,7 +604,8 @@ export default function Portfolio() {
       ]);
 
       if (feedbackResponse.ok) {
-        setFeedback((await feedbackResponse.json()) as SiteFeedback[]);
+        const rows = (await feedbackResponse.json()) as SiteFeedback[];
+        setFeedback(rows.map(parseFeedback));
       }
 
       if (visitsResponse.ok) {
@@ -569,10 +730,7 @@ export default function Portfolio() {
     }
 
     sessionStorage.setItem(VISIT_SESSION_KEY, "pending");
-    const sessionId =
-      typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID().slice(0, 8)
-        : Math.random().toString(36).slice(2, 10);
+    const sessionId = getVisitorSessionId();
 
     let source = "Direct";
     if (document.referrer) {
@@ -585,6 +743,8 @@ export default function Portfolio() {
       }
     }
 
+    const networkLocation = await getApproximateNetworkLocation();
+
     const details: VisitDetails = {
       sessionId,
       device: detectDevice(navigator.userAgent, window.innerWidth),
@@ -592,6 +752,8 @@ export default function Portfolio() {
       viewport: window.innerWidth + " × " + window.innerHeight,
       source,
       path: window.location.pathname,
+      maskedIp: networkLocation.maskedIp,
+      approximateLocation: networkLocation.approximateLocation,
     };
 
     try {
@@ -812,6 +974,7 @@ export default function Portfolio() {
 
     setSaving(true);
     try {
+      const visitorDetails = await getVisitorDetails();
       const response = await fetchWithTimeout(
         SUPABASE_URL + "/rest/v1/activity_comments",
         {
@@ -820,7 +983,11 @@ export default function Portfolio() {
           body: JSON.stringify({
             activity_id: activityId,
             visitor_name: draft.name.trim(),
-            comment: draft.text.trim(),
+            comment: JSON.stringify({
+              marker: SUBMISSION_MARKER,
+              message: draft.text.trim(),
+              visitor: visitorDetails,
+            }),
           }),
         },
       );
@@ -849,6 +1016,7 @@ export default function Portfolio() {
     const values = new FormData(formElement);
 
     try {
+      const visitorDetails = await getVisitorDetails();
       const response = await fetchWithTimeout(
         SUPABASE_URL + "/rest/v1/site_feedback",
         {
@@ -856,7 +1024,11 @@ export default function Portfolio() {
           headers: { ...apiHeaders(), Prefer: "return=minimal" },
           body: JSON.stringify({
             visitor_name: String(values.get("visitor_name") ?? "").trim(),
-            feedback: String(values.get("feedback") ?? "").trim(),
+            feedback: JSON.stringify({
+              marker: SUBMISSION_MARKER,
+              message: String(values.get("feedback") ?? "").trim(),
+              visitor: visitorDetails,
+            }),
           }),
         },
       );
@@ -1235,7 +1407,7 @@ export default function Portfolio() {
 
         <div className="portrait">
           <img
-            src="/profile.jpg"
+            src="https://fuzewuze1504.github.io/profile.jpg"
             alt="Carl Anthony Eguizabal"
             width={1254}
             height={1254}
@@ -1473,6 +1645,14 @@ export default function Portfolio() {
                                   </time>
                                 </div>
                                 <p>{entry.comment}</p>
+                                {session && entry.visitorDetails && (
+                                  <small className="submission-meta">
+                                    {entry.visitorDetails.approximateLocation} · IP{" "}
+                                    {entry.visitorDetails.maskedIp} ·{" "}
+                                    {entry.visitorDetails.device}/
+                                    {entry.visitorDetails.browser}
+                                  </small>
+                                )}
                                 {session && (
                                   <button
                                     type="button"
@@ -1646,6 +1826,13 @@ export default function Portfolio() {
               Have a suggestion about this portfolio? Leave a private message.
               Only the portfolio owner can read it.
             </p>
+            <p className="privacy-note">
+              Analytics notice: one anonymous visit is recorded per browser tab,
+              including device, browser, masked IP, and IP-based approximate
+              city/region. New feedback and comments are linked to the same
+              privacy-safe details for admin review. Full IP addresses and exact
+              GPS are not stored.
+            </p>
           </div>
           <form className="feedback-form" onSubmit={submitFeedback}>
             <label>
@@ -1708,6 +1895,14 @@ export default function Portfolio() {
                         <time>{displayDate(entry.created_at, true)}</time>
                       </div>
                       <p>{entry.feedback}</p>
+                      {entry.visitorDetails && (
+                        <small className="submission-meta">
+                          {entry.visitorDetails.approximateLocation} · IP{" "}
+                          {entry.visitorDetails.maskedIp} ·{" "}
+                          {entry.visitorDetails.device}/
+                          {entry.visitorDetails.browser}
+                        </small>
+                      )}
                       <button
                         type="button"
                         className="text-delete"
@@ -1732,8 +1927,9 @@ export default function Portfolio() {
                 <span>{visits.length}</span>
               </div>
               <p className="privacy-note">
-                Recent anonymous sessions only. No IP addresses or exact
-                locations are collected.
+                Recent anonymous sessions only. Masked IP and IP-based
+                approximate location are shown; exact GPS and full IP addresses
+                are never stored.
               </p>
 
               {visits.length === 0 ? (
@@ -1749,8 +1945,12 @@ export default function Portfolio() {
                         <strong>
                           {entry.details.device} · {entry.details.browser}
                         </strong>
+                        <span>{entry.details.approximateLocation}</span>
                         <span>
-                          {entry.details.viewport} · {entry.details.source}
+                          IP {entry.details.maskedIp} · {entry.details.viewport}
+                        </span>
+                        <span>
+                          {entry.details.source} · {entry.details.path}
                         </span>
                         <time>{displayDate(entry.created_at, true)}</time>
                       </div>
