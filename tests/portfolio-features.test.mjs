@@ -40,6 +40,7 @@ test("supports admin-managed skills and consent-based access history", () => {
   assert.match(component, /Cookies & visitor privacy/);
   assert.match(component, /Exact GPS is not requested/);
   assert.match(component, /full public IP/);
+  assert.doesNotMatch(component, /data_consent/);
 });
 
 test("loads portfolio images without avoidable mobile work", () => {

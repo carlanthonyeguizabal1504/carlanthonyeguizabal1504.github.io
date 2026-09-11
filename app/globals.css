@@ -828,27 +828,6 @@ dd {
   font-weight: 800;
 }
 
-.data-consent {
-  display: flex !important;
-  grid-column: 1 / -1;
-  align-items: flex-start;
-  gap: 9px !important;
-  color: var(--muted) !important;
-  font-size: 0.72rem !important;
-  font-weight: 550 !important;
-  line-height: 1.45;
-}
-
-.data-consent input[type="checkbox"] {
-  width: 17px;
-  min-width: 17px;
-  height: 17px;
-  min-height: 17px;
-  margin: 2px 0 0;
-  padding: 0;
-  accent-color: var(--text);
-}
-
 .comment-submit:disabled {
   opacity: 0.55;
 }

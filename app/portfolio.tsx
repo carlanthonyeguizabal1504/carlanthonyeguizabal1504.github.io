@@ -361,6 +361,16 @@ async function getApproximateNetworkLocation() {
 }
 
 async function getVisitorDetails(): Promise<VisitorDetails> {
+  if (readPrivacyConsent() !== "accepted") {
+    return {
+      sessionId: getVisitorSessionId(),
+      ipAddress: "Not collected",
+      approximateLocation: "Not collected",
+      device: detectDevice(navigator.userAgent, window.innerWidth),
+      browser: detectBrowser(navigator.userAgent),
+    };
+  }
+
   const network = await getApproximateNetworkLocation();
   return {
     sessionId: getVisitorSessionId(),
@@ -1802,19 +1812,6 @@ export default function Portfolio() {
                               }))
                             }
                           />
-                          <label className="data-consent">
-                            <input
-                              type="checkbox"
-                              name="data_consent"
-                              value="yes"
-                              required
-                            />
-                            <span>
-                              I agree that my full public IP and approximate
-                              location will be stored with this comment for
-                              owner-only moderation.
-                            </span>
-                          </label>
                           <button
                             className="comment-submit"
                             disabled={saving}
@@ -1937,8 +1934,9 @@ export default function Portfolio() {
               Privacy notice: after consent, one visit is recorded per browser
               tab with your full public IP, IP-based approximate city/region,
               device, browser, source, and page. Feedback and comments store the
-              same details for owner-only analytics and moderation. Records stay
-              until the owner deletes them. Exact GPS is never requested.
+              same details for owner-only analytics and moderation when cookies
+              are accepted. Records stay until the owner deletes them. Exact GPS
+              is never requested.
             </p>
           </div>
           <form className="feedback-form" onSubmit={submitFeedback}>
@@ -1964,19 +1962,6 @@ export default function Portfolio() {
                 placeholder="What can I improve?"
                 disabled={feedbackSent}
               />
-            </label>
-            <label className="data-consent">
-              <input
-                type="checkbox"
-                name="data_consent"
-                value="yes"
-                required
-                disabled={feedbackSent}
-              />
-              <span>
-                I agree that my full public IP and approximate location will be
-                stored with this feedback for owner-only review.
-              </span>
             </label>
             <button className="primary" disabled={saving || feedbackSent}>
               {saving
@@ -2153,7 +2138,8 @@ export default function Portfolio() {
               If you accept, this portfolio stores one visit per browser tab
               with your full public IP, approximate city/region, device, browser,
               source, and page. It is visible only to the portfolio owner and is
-              kept until deleted. Exact GPS is not requested.
+              kept until deleted. The same choice applies to comments and
+              feedback. Exact GPS is not requested.
             </p>
           </div>
           <div className="privacy-actions">
