@@ -1235,7 +1235,7 @@ export default function Portfolio() {
 
         <div className="portrait">
           <img
-            src="https://fuzewuze1504.github.io/profile.jpg"
+            src="/profile.jpg"
             alt="Carl Anthony Eguizabal"
             width={1254}
             height={1254}
