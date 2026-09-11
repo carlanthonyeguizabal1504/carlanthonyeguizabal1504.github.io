@@ -33,16 +33,19 @@ const SESSION_KEY = "portfolio_admin_session";
 const THEME_KEY = "portfolio_theme";
 const VISIT_SESSION_KEY = "portfolio_visit_recorded_v1";
 const VISITOR_SESSION_ID_KEY = "portfolio_visitor_session_id_v1";
-const VISITOR_NETWORK_SESSION_KEY = "portfolio_visitor_network_v1";
+const VISITOR_NETWORK_SESSION_KEY = "portfolio_visitor_network_v2";
+const PRIVACY_CONSENT_KEY = "portfolio_full_ip_consent_v1";
 const FEEDBACK_SESSION_KEY = "portfolio_feedback_sent_v1";
 const VISIT_MARKER = "__portfolio_visit_v1__";
 const SUBMISSION_MARKER = "__portfolio_submission_v1__";
+const COMMENT_META_MARKER = "__portfolio_comment_meta_v1__";
 const SKILL_TYPE = "Skill";
 const SKILL_META_TYPE = "SkillMeta";
 const SKILL_META_TITLE = "__skills_initialized__";
 
 type Theme = "dark" | "light";
 type MobileView = "home" | "works" | "skills" | "feedback" | "contact";
+type PrivacyConsent = "unknown" | "accepted" | "declined";
 
 type Activity = {
   id: number;
@@ -98,7 +101,8 @@ type SiteFeedback = {
 
 type VisitorDetails = {
   sessionId: string;
-  maskedIp: string;
+  ipAddress: string;
+  maskedIp?: string;
   approximateLocation: string;
   device: string;
   browser: string;
@@ -124,7 +128,8 @@ type VisitDetails = {
   viewport: string;
   source: string;
   path: string;
-  maskedIp: string;
+  ipAddress: string;
+  maskedIp?: string;
   approximateLocation: string;
 };
 
@@ -139,6 +144,12 @@ type IpLocationResponse = {
 type StoredSubmission = {
   marker: string;
   message: string;
+  visitor: VisitorDetails;
+};
+
+type StoredCommentMetadata = {
+  marker: string;
+  commentId: number;
   visitor: VisitorDetails;
 };
 
@@ -278,27 +289,6 @@ function detectDevice(userAgent: string, width: number) {
   return "Desktop";
 }
 
-function maskPublicIp(value: string) {
-  const ip = value.trim();
-  if (!ip) return "Unavailable";
-
-  if (ip.includes(".")) {
-    const parts = ip.split(".");
-    return parts.length === 4
-      ? parts.slice(0, 2).concat("xxx", "xxx").join(".")
-      : "Unavailable";
-  }
-
-  if (ip.includes(":")) {
-    const parts = ip.split(":").filter(Boolean);
-    return parts.length > 0
-      ? parts.slice(0, 3).concat("xxxx", "xxxx").join(":")
-      : "Unavailable";
-  }
-
-  return "Unavailable";
-}
-
 function getVisitorSessionId() {
   const existing = sessionStorage.getItem(VISITOR_SESSION_ID_KEY);
   if (existing) return existing;
@@ -311,13 +301,28 @@ function getVisitorSessionId() {
   return nextId;
 }
 
+function readPrivacyConsent(): PrivacyConsent {
+  const value = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(PRIVACY_CONSENT_KEY + "="))
+    ?.split("=")[1];
+
+  return value === "accepted" || value === "declined" ? value : "unknown";
+}
+
+function writePrivacyConsent(value: Exclude<PrivacyConsent, "unknown">) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${PRIVACY_CONSENT_KEY}=${value}; Max-Age=31536000; Path=/; SameSite=Lax${secure}`;
+}
+
 async function getApproximateNetworkLocation() {
   const cached = sessionStorage.getItem(VISITOR_NETWORK_SESSION_KEY);
   if (cached) {
     try {
       return JSON.parse(cached) as Pick<
         VisitorDetails,
-        "maskedIp" | "approximateLocation"
+        "ipAddress" | "approximateLocation"
       >;
     } catch {
       sessionStorage.removeItem(VISITOR_NETWORK_SESSION_KEY);
@@ -341,7 +346,7 @@ async function getApproximateNetworkLocation() {
       .filter((part): part is string => Boolean(part));
 
     const result = {
-      maskedIp: maskPublicIp(data.ip || ""),
+      ipAddress: data.ip?.trim() || "Unavailable",
       approximateLocation:
         [...new Set(locationParts)].join(", ") || "Unavailable",
     };
@@ -349,7 +354,7 @@ async function getApproximateNetworkLocation() {
     return result;
   } catch {
     return {
-      maskedIp: "Unavailable",
+      ipAddress: "Unavailable",
       approximateLocation: "Unavailable",
     };
   }
@@ -359,7 +364,7 @@ async function getVisitorDetails(): Promise<VisitorDetails> {
   const network = await getApproximateNetworkLocation();
   return {
     sessionId: getVisitorSessionId(),
-    maskedIp: network.maskedIp,
+    ipAddress: network.ipAddress,
     approximateLocation: network.approximateLocation,
     device: detectDevice(navigator.userAgent, window.innerWidth),
     browser: detectBrowser(navigator.userAgent),
@@ -378,7 +383,42 @@ function parseStoredSubmission(value: string) {
     }
     return {
       message: parsed.message,
-      visitorDetails: parsed.visitor,
+      visitorDetails: {
+        ...parsed.visitor,
+        ipAddress:
+          parsed.visitor.ipAddress ||
+          parsed.visitor.maskedIp ||
+          "Not recorded",
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizeVisitorDetails(visitor: VisitorDetails): VisitorDetails {
+  return {
+    ...visitor,
+    ipAddress: visitor.ipAddress || visitor.maskedIp || "Not recorded",
+  };
+}
+
+function parseCommentMetadata(row: SiteFeedback) {
+  if (row.visitor_name !== COMMENT_META_MARKER) return null;
+
+  try {
+    const parsed = JSON.parse(row.feedback) as Partial<StoredCommentMetadata>;
+    if (
+      parsed.marker !== COMMENT_META_MARKER ||
+      typeof parsed.commentId !== "number" ||
+      !parsed.visitor
+    ) {
+      return null;
+    }
+
+    return {
+      commentId: parsed.commentId,
+      visitor: normalizeVisitorDetails(parsed.visitor),
     };
   } catch {
     return null;
@@ -417,7 +457,9 @@ function parseVisit(row: SiteFeedback): VisitLog | null {
         viewport: String(details.viewport || "Unknown"),
         source: String(details.source || "Direct"),
         path: String(details.path || "/"),
-        maskedIp: String(details.maskedIp || "Not recorded"),
+        ipAddress: String(
+          details.ipAddress || details.maskedIp || "Not recorded",
+        ),
         approximateLocation: String(
           details.approximateLocation || "Not recorded",
         ),
@@ -503,6 +545,9 @@ export default function Portfolio() {
   const [editingSkillId, setEditingSkillId] = useState<number | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [comments, setComments] = useState<ActivityComment[]>([]);
+  const [commentMetadata, setCommentMetadata] = useState<
+    Record<number, VisitorDetails>
+  >({});
   const [feedback, setFeedback] = useState<SiteFeedback[]>([]);
   const [visits, setVisits] = useState<VisitLog[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<
@@ -521,6 +566,8 @@ export default function Portfolio() {
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [notice, setNotice] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [privacyConsent, setPrivacyConsent] =
+    useState<PrivacyConsent>("unknown");
 
   async function loadPortfolioContent() {
     try {
@@ -581,40 +628,42 @@ export default function Portfolio() {
 
   async function loadAdminData(activeSession: Session) {
     try {
-      const feedbackUrl =
+      const recordsUrl =
         SUPABASE_URL +
-        "/rest/v1/site_feedback?select=*&visitor_name=neq." +
-        VISIT_MARKER +
-        "&order=created_at.desc&limit=100";
-      const visitsUrl =
-        SUPABASE_URL +
-        "/rest/v1/site_feedback?select=*&visitor_name=eq." +
-        VISIT_MARKER +
-        "&order=created_at.desc&limit=100";
+        "/rest/v1/site_feedback?select=*&order=created_at.desc&limit=300";
+      const recordsResponse = await fetchWithTimeout(recordsUrl, {
+        headers: apiHeaders(activeSession),
+        cache: "no-store",
+      });
 
-      const [feedbackResponse, visitsResponse] = await Promise.all([
-        fetchWithTimeout(feedbackUrl, {
-          headers: apiHeaders(activeSession),
-          cache: "no-store",
-        }),
-        fetchWithTimeout(visitsUrl, {
-          headers: apiHeaders(activeSession),
-          cache: "no-store",
-        }),
-      ]);
-
-      if (feedbackResponse.ok) {
-        const rows = (await feedbackResponse.json()) as SiteFeedback[];
-        setFeedback(rows.map(parseFeedback));
-      }
-
-      if (visitsResponse.ok) {
-        const rows = (await visitsResponse.json()) as SiteFeedback[];
+      if (recordsResponse.ok) {
+        const rows = (await recordsResponse.json()) as SiteFeedback[];
+        setFeedback(
+          rows
+            .filter(
+              (row) =>
+                row.visitor_name !== VISIT_MARKER &&
+                row.visitor_name !== COMMENT_META_MARKER,
+            )
+            .slice(0, 100)
+            .map(parseFeedback),
+        );
         setVisits(
           rows
+            .filter((row) => row.visitor_name === VISIT_MARKER)
+            .slice(0, 100)
             .map(parseVisit)
             .filter((entry): entry is VisitLog => entry !== null),
         );
+
+        const nextCommentMetadata: Record<number, VisitorDetails> = {};
+        rows.forEach((row) => {
+          const metadata = parseCommentMetadata(row);
+          if (metadata) {
+            nextCommentMetadata[metadata.commentId] = metadata.visitor;
+          }
+        });
+        setCommentMetadata(nextCommentMetadata);
       }
     } catch {
       setNotice("Admin records could not be refreshed.");
@@ -724,7 +773,8 @@ export default function Portfolio() {
   async function recordVisit() {
     if (
       sessionStorage.getItem(VISIT_SESSION_KEY) ||
-      localStorage.getItem(SESSION_KEY)
+      localStorage.getItem(SESSION_KEY) ||
+      readPrivacyConsent() !== "accepted"
     ) {
       return;
     }
@@ -752,7 +802,7 @@ export default function Portfolio() {
       viewport: window.innerWidth + " × " + window.innerHeight,
       source,
       path: window.location.pathname,
-      maskedIp: networkLocation.maskedIp,
+      ipAddress: networkLocation.ipAddress,
       approximateLocation: networkLocation.approximateLocation,
     };
 
@@ -807,11 +857,13 @@ export default function Portfolio() {
     void loadComments();
 
     const storedSession = localStorage.getItem(SESSION_KEY);
+    const nextConsent = readPrivacyConsent();
+    setPrivacyConsent(nextConsent);
     let visitTimer = 0;
 
     if (storedSession) {
       void restoreSession(storedSession);
-    } else {
+    } else if (nextConsent === "accepted") {
       visitTimer = window.setTimeout(() => void recordVisit(), 800);
     }
 
@@ -840,6 +892,22 @@ export default function Portfolio() {
     document.documentElement.dataset.theme = nextTheme;
     localStorage.setItem(THEME_KEY, nextTheme);
     setTheme(nextTheme);
+  }
+
+  function acceptPrivacyTracking() {
+    writePrivacyConsent("accepted");
+    setPrivacyConsent("accepted");
+    void recordVisit();
+  }
+
+  function declinePrivacyTracking() {
+    writePrivacyConsent("declined");
+    sessionStorage.removeItem(VISITOR_NETWORK_SESSION_KEY);
+    setPrivacyConsent("declined");
+  }
+
+  function reopenPrivacySettings() {
+    setPrivacyConsent("unknown");
   }
 
   function showMobileView(nextView: MobileView) {
@@ -964,10 +1032,14 @@ export default function Portfolio() {
     setSession(null);
     setFeedback([]);
     setVisits([]);
+    setCommentMetadata({});
     setNotice("Logged out. The portfolio is back in view-only mode.");
   }
 
-  async function submitComment(event: FormEvent, activityId: number) {
+  async function submitComment(
+    event: FormEvent<HTMLFormElement>,
+    activityId: number,
+  ) {
     event.preventDefault();
     const draft = commentDrafts[activityId] ?? { name: "", text: "" };
     if (draft.name.trim().length < 2 || draft.text.trim().length < 3) return;
@@ -979,19 +1051,35 @@ export default function Portfolio() {
         SUPABASE_URL + "/rest/v1/activity_comments",
         {
           method: "POST",
-          headers: { ...apiHeaders(), Prefer: "return=minimal" },
+          headers: { ...apiHeaders(), Prefer: "return=representation" },
           body: JSON.stringify({
             activity_id: activityId,
             visitor_name: draft.name.trim(),
-            comment: JSON.stringify({
-              marker: SUBMISSION_MARKER,
-              message: draft.text.trim(),
-              visitor: visitorDetails,
-            }),
+            comment: draft.text.trim(),
           }),
         },
       );
       if (!response.ok) throw new Error("Comment failed.");
+
+      const insertedRows = (await response.json()) as ActivityComment[];
+      const insertedComment = insertedRows[0];
+      if (insertedComment?.id) {
+        await fetchWithTimeout(
+          SUPABASE_URL + "/rest/v1/site_feedback",
+          {
+            method: "POST",
+            headers: { ...apiHeaders(), Prefer: "return=minimal" },
+            body: JSON.stringify({
+              visitor_name: COMMENT_META_MARKER,
+              feedback: JSON.stringify({
+                marker: COMMENT_META_MARKER,
+                commentId: insertedComment.id,
+                visitor: visitorDetails,
+              }),
+            }),
+          },
+        );
+      }
 
       setCommentDrafts((current) => ({
         ...current,
@@ -1407,7 +1495,7 @@ export default function Portfolio() {
 
         <div className="portrait">
           <img
-            src="https://fuzewuze1504.github.io/profile.jpg"
+            src="https://carlanthonyeguizabal1504.github.io/profile.jpg"
             alt="Carl Anthony Eguizabal"
             width={1254}
             height={1254}
@@ -1636,8 +1724,13 @@ export default function Portfolio() {
                       <div className="comments-body">
                         {itemComments.length > 0 && (
                           <div className="comment-list">
-                            {itemComments.map((entry) => (
-                              <div className="comment" key={entry.id}>
+                            {itemComments.map((entry) => {
+                              const visitorDetails =
+                                entry.visitorDetails ||
+                                commentMetadata[entry.id];
+
+                              return (
+                                <div className="comment" key={entry.id}>
                                 <div>
                                   <strong>{entry.visitor_name}</strong>
                                   <time>
@@ -1645,12 +1738,12 @@ export default function Portfolio() {
                                   </time>
                                 </div>
                                 <p>{entry.comment}</p>
-                                {session && entry.visitorDetails && (
+                                {session && visitorDetails && (
                                   <small className="submission-meta">
-                                    {entry.visitorDetails.approximateLocation} · IP{" "}
-                                    {entry.visitorDetails.maskedIp} ·{" "}
-                                    {entry.visitorDetails.device}/
-                                    {entry.visitorDetails.browser}
+                                    {visitorDetails.approximateLocation} · IP{" "}
+                                    {visitorDetails.ipAddress} ·{" "}
+                                    {visitorDetails.device}/
+                                    {visitorDetails.browser}
                                   </small>
                                 )}
                                 {session && (
@@ -1662,8 +1755,9 @@ export default function Portfolio() {
                                     Delete
                                   </button>
                                 )}
-                              </div>
-                            ))}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
 
@@ -1708,6 +1802,19 @@ export default function Portfolio() {
                               }))
                             }
                           />
+                          <label className="data-consent">
+                            <input
+                              type="checkbox"
+                              name="data_consent"
+                              value="yes"
+                              required
+                            />
+                            <span>
+                              I agree that my full public IP and approximate
+                              location will be stored with this comment for
+                              owner-only moderation.
+                            </span>
+                          </label>
                           <button
                             className="comment-submit"
                             disabled={saving}
@@ -1827,11 +1934,11 @@ export default function Portfolio() {
               Only the portfolio owner can read it.
             </p>
             <p className="privacy-note">
-              Analytics notice: one anonymous visit is recorded per browser tab,
-              including device, browser, masked IP, and IP-based approximate
-              city/region. New feedback and comments are linked to the same
-              privacy-safe details for admin review. Full IP addresses and exact
-              GPS are not stored.
+              Privacy notice: after consent, one visit is recorded per browser
+              tab with your full public IP, IP-based approximate city/region,
+              device, browser, source, and page. Feedback and comments store the
+              same details for owner-only analytics and moderation. Records stay
+              until the owner deletes them. Exact GPS is never requested.
             </p>
           </div>
           <form className="feedback-form" onSubmit={submitFeedback}>
@@ -1857,6 +1964,19 @@ export default function Portfolio() {
                 placeholder="What can I improve?"
                 disabled={feedbackSent}
               />
+            </label>
+            <label className="data-consent">
+              <input
+                type="checkbox"
+                name="data_consent"
+                value="yes"
+                required
+                disabled={feedbackSent}
+              />
+              <span>
+                I agree that my full public IP and approximate location will be
+                stored with this feedback for owner-only review.
+              </span>
             </label>
             <button className="primary" disabled={saving || feedbackSent}>
               {saving
@@ -1898,7 +2018,7 @@ export default function Portfolio() {
                       {entry.visitorDetails && (
                         <small className="submission-meta">
                           {entry.visitorDetails.approximateLocation} · IP{" "}
-                          {entry.visitorDetails.maskedIp} ·{" "}
+                          {entry.visitorDetails.ipAddress} ·{" "}
                           {entry.visitorDetails.device}/
                           {entry.visitorDetails.browser}
                         </small>
@@ -1927,9 +2047,9 @@ export default function Portfolio() {
                 <span>{visits.length}</span>
               </div>
               <p className="privacy-note">
-                Recent anonymous sessions only. Masked IP and IP-based
-                approximate location are shown; exact GPS and full IP addresses
-                are never stored.
+                Consent-based sessions only. Full public IP and IP-based
+                approximate location are visible only in admin mode. Exact GPS
+                is never requested.
               </p>
 
               {visits.length === 0 ? (
@@ -1947,7 +2067,7 @@ export default function Portfolio() {
                         </strong>
                         <span>{entry.details.approximateLocation}</span>
                         <span>
-                          IP {entry.details.maskedIp} · {entry.details.viewport}
+                          IP {entry.details.ipAddress} · {entry.details.viewport}
                         </span>
                         <span>
                           {entry.details.source} · {entry.details.path}
@@ -1999,7 +2119,7 @@ export default function Portfolio() {
               Email
             </a>
             <a
-              href="https://github.com/fuzewuze1504"
+              href="https://github.com/carlanthonyeguizabal1504"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -2012,9 +2132,48 @@ export default function Portfolio() {
             >
               Facebook
             </a>
+            <button type="button" onClick={reopenPrivacySettings}>
+              Privacy settings
+            </button>
           </div>
         </div>
       </footer>
+
+      {!session && privacyConsent === "unknown" && (
+        <aside
+          className="privacy-banner"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="privacy-banner-title"
+          aria-describedby="privacy-banner-description"
+        >
+          <div>
+            <strong id="privacy-banner-title">Cookies & visitor privacy</strong>
+            <p id="privacy-banner-description">
+              If you accept, this portfolio stores one visit per browser tab
+              with your full public IP, approximate city/region, device, browser,
+              source, and page. It is visible only to the portfolio owner and is
+              kept until deleted. Exact GPS is not requested.
+            </p>
+          </div>
+          <div className="privacy-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={declinePrivacyTracking}
+            >
+              Decline
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={acceptPrivacyTracking}
+            >
+              Accept
+            </button>
+          </div>
+        </aside>
+      )}
 
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         <button
