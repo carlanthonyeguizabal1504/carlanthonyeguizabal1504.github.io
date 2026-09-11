@@ -1903,7 +1903,7 @@ export default function Portfolio() {
         <div className="shell">
           <GraduationCap />
           <p>
-            “Vibe Coder lang me po:>”
+            “Vibe Coder lang po ako!!”
           </p>
         </div>
       </section>
