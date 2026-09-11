@@ -1903,8 +1903,7 @@ export default function Portfolio() {
         <div className="shell">
           <GraduationCap />
           <p>
-            “Every activity is a record of progress—not just a requirement
-            completed.”
+            “Vibe Coder lang me po:>”
           </p>
         </div>
       </section>
