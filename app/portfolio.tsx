@@ -2125,7 +2125,11 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
           data-page-link
           aria-label="Carl Anthony home"
         >
-          CA<span>.</span>
+          <img
+            className="brand-logo"
+            src="/ca-navbar-logo.png"
+            alt=""
+          />
           <span className="mobile-brand-copy" aria-hidden="true">
             <strong>Carl Anthony</strong>
             <small>Student portfolio</small>
