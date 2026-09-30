@@ -58,3 +58,24 @@ test("page entrance keeps login and editor dialogs anchored to the viewport", ()
   assert.doesNotMatch(entrance, /\b(?:transform|translate|filter|perspective):/);
   assert.match(css, /\.modal-backdrop\s*\{\s*position:\s*fixed;/);
 });
+
+test("phone layouts keep all six destinations and readable controls", () => {
+  const dock = component.match(/<nav className="mobile-bottom-nav"[\s\S]*?<\/nav>/)?.[0];
+
+  assert.ok(dock, "preserves the mobile navigation");
+  for (const view of ["home", "about", "works", "skills", "feedback", "contact"]) {
+    assert.ok(dock.includes(`showMobileView("${view}")`), `${view} stays accessible`);
+  }
+  assert.match(component, /mobile-brand-copy/);
+  assert.match(component, /window\.history\.replaceState\(null, "", destination\)/);
+  assert.match(css, /grid-template-columns:\s*repeat\(6, minmax\(0, 1fr\)\)/);
+  assert.match(css, /--mobile-dock-clearance/);
+  assert.match(css, /min-height:\s*52px;\s*font-size:\s*1rem;/);
+});
+
+test("mobile dialogs lock background scrolling and keep keyboard focus inside", () => {
+  assert.match(component, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(component, /event\.key === "Escape"/);
+  assert.match(component, /event\.shiftKey && document\.activeElement === first/);
+  assert.match(component, /document\.body\.style\.overflow = previousOverflow/);
+});

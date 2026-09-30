@@ -56,7 +56,7 @@ const CONTENT_META_TYPE = "PortfolioContentMeta";
 const CONTENT_META_TITLE = "__editable_content_initialized__";
 
 type Theme = "dark" | "light";
-type MobileView = "home" | "works" | "skills" | "feedback" | "contact";
+type MobileView = "home" | "about" | "works" | "skills" | "feedback" | "contact";
 type PrivacyConsent = "unknown" | "accepted" | "declined";
 export type PortfolioRoute =
   | "home"
@@ -814,7 +814,17 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
   const [hobbyOpen, setHobbyOpen] = useState(false);
   const [workingStyleOpen, setWorkingStyleOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [mobileView, setMobileView] = useState<MobileView>("home");
+  const [mobileView, setMobileView] = useState<MobileView>(
+    route === "projects"
+      ? "works"
+      : route === "about"
+        ? "about"
+        : route === "skills"
+          ? "skills"
+          : route === "contact"
+            ? "contact"
+            : "home",
+  );
   const [theme, setTheme] = useState<Theme>("dark");
   const [loading, setLoading] = useState(true);
   const [skillsReady, setSkillsReady] = useState(false);
@@ -1218,7 +1228,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
     const hash = window.location.hash.replace("#", "");
     const hashView: Record<string, MobileView> = {
       home: "home",
-      about: "home",
+      about: "about",
       works: "works",
       skills: "skills",
       feedback: "feedback",
@@ -1275,6 +1285,65 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
   useEffect(() => {
     document.documentElement.classList.remove("is-page-leaving");
   }, [route]);
+
+  const dialogOpen =
+    activityOpen || skillOpen || profileOpen || hobbyOpen ||
+    workingStyleOpen || loginOpen;
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    document.body.style.overflow = "hidden";
+
+    const dialog = document.querySelector<HTMLElement>(
+      '.modal-backdrop [role="dialog"]',
+    );
+    const controls = () =>
+      Array.from(dialog?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]',
+      ) || []).filter((element) => element.getClientRects().length > 0);
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const firstField = dialog?.querySelector<HTMLElement>("input, textarea, select");
+      (firstField || controls()[0])?.focus({ preventScroll: true });
+    });
+
+    const handleDialogKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setActivityOpen(false);
+        setSkillOpen(false);
+        setProfileOpen(false);
+        setHobbyOpen(false);
+        setWorkingStyleOpen(false);
+        setLoginOpen(false);
+      }
+      if (event.key !== "Tab") return;
+      const buttons = controls();
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleDialogKey);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleDialogKey);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
+  }, [dialogOpen]);
 
   useEffect(() => {
     if (items.length < 2) return;
@@ -1336,6 +1405,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
   function showMobileView(nextView: MobileView) {
     const destinations: Record<MobileView, string> = {
       home: "/",
+      about: "/about",
       works: "/projects",
       skills: "/skills",
       feedback: "/contact#feedback",
@@ -1345,6 +1415,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
     const destination = destinations[nextView];
     const isCurrentPage =
       (nextView === "home" && route === "home") ||
+      (nextView === "about" && route === "about") ||
       (nextView === "works" && route === "projects") ||
       (nextView === "skills" && route === "skills") ||
       ((nextView === "feedback" || nextView === "contact") &&
@@ -1364,7 +1435,9 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
     }
 
     setMobileView(nextView);
-    if (nextView === "feedback") window.location.hash = "feedback";
+    if (route === "contact") {
+      window.history.replaceState(null, "", destination);
+    }
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
@@ -2021,15 +2094,19 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
   }
 
   const homeActive =
-    mobileView === "home" || route === "about" ? " is-active" : "";
+    mobileView === "home" ? " is-active" : "";
+  const aboutActive =
+    mobileView === "home" || mobileView === "about" ? " is-active" : "";
   const worksActive =
-    mobileView === "works" || route === "projects" ? " is-active" : "";
+    mobileView === "works" ? " is-active" : "";
   const skillsActive =
-    mobileView === "skills" || route === "skills" ? " is-active" : "";
+    mobileView === "skills" ? " is-active" : "";
   const feedbackActive =
-    mobileView === "feedback" || route === "contact" ? " is-active" : "";
+    mobileView === "feedback" ? " is-active" : "";
   const contactActive =
-    mobileView === "contact" || route === "contact" ? " is-active" : "";
+    mobileView === "contact" ? " is-active" : "";
+  const footerActive =
+    mobileView === "contact" || mobileView === "feedback" ? " is-active" : "";
 
   return (
     <main
@@ -2049,6 +2126,10 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
           aria-label="Carl Anthony home"
         >
           CA<span>.</span>
+          <span className="mobile-brand-copy" aria-hidden="true">
+            <strong>Carl Anthony</strong>
+            <small>Student portfolio</small>
+          </span>
         </Link>
 
         <div className="nav-links">
@@ -2296,7 +2377,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
       <section
         className={
           "section shell page-section page-about-section mobile-panel mobile-home" +
-          homeActive
+          aboutActive
         }
         id="about"
       >
@@ -3029,7 +3110,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
       <footer
         className={
           "site-footer page-section page-contact-section mobile-panel mobile-contact" +
-          contactActive
+          footerActive
         }
       >
         <div className="shell site-footer-inner">
@@ -3104,51 +3185,61 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
 
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         <button
-          className={route === "home" ? "active" : ""}
+          className={mobileView === "home" ? "active" : ""}
           type="button"
           onClick={() => showMobileView("home")}
           aria-label="Home"
-          aria-current={route === "home" ? "page" : undefined}
+          aria-current={mobileView === "home" ? "page" : undefined}
         >
           <Home size={20} />
           <span>Home</span>
         </button>
         <button
-          className={route === "projects" ? "active" : ""}
+          className={mobileView === "about" ? "active" : ""}
+          type="button"
+          onClick={() => showMobileView("about")}
+          aria-label="About"
+          aria-current={mobileView === "about" ? "page" : undefined}
+        >
+          <UserRound size={20} />
+          <span>About</span>
+        </button>
+        <button
+          className={mobileView === "works" ? "active" : ""}
           type="button"
           onClick={() => showMobileView("works")}
           aria-label="Work"
-          aria-current={route === "projects" ? "page" : undefined}
+          aria-current={mobileView === "works" ? "page" : undefined}
         >
           <FolderKanban size={20} />
           <span>Work</span>
         </button>
         <button
-          className={route === "skills" ? "active" : ""}
+          className={mobileView === "skills" ? "active" : ""}
           type="button"
           onClick={() => showMobileView("skills")}
           aria-label="Skills"
-          aria-current={route === "skills" ? "page" : undefined}
+          aria-current={mobileView === "skills" ? "page" : undefined}
         >
           <Sparkles size={20} />
           <span>Skills</span>
         </button>
         <button
-          className={route === "contact" ? "active" : ""}
+          className={mobileView === "feedback" ? "active" : ""}
           type="button"
           onClick={() => showMobileView("feedback")}
           aria-label="Feedback"
-          aria-current={route === "contact" ? "page" : undefined}
+          aria-current={mobileView === "feedback" ? "page" : undefined}
         >
           <MessageSquare size={20} />
           <span>Feedback</span>
         </button>
         <button
-          className={route === "contact" ? "active" : ""}
+          className={mobileView === "contact" ? "active" : ""}
           type="button"
           onClick={() => showMobileView("contact")}
           aria-label="Contact"
-          aria-current={route === "contact" ? "page" : undefined}
+          aria-current={mobileView === "contact" ? "page" : undefined}
         >
           <ContactRound size={20} />
           <span>Contact</span>
@@ -3663,6 +3754,10 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
                   }}
                 />
               </label>
+              <p className="field-note">
+                Posted hobby images become a softly blurred card background so
+                your title and description stay easy to read.
+              </p>
               {hobbyForm.imageUrl && (
                 <div className="thumbnail-preview compact-preview">
                   <img
