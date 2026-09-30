@@ -49,6 +49,11 @@ const COMMENT_META_MARKER = "__portfolio_comment_meta_v1__";
 const SKILL_TYPE = "Skill";
 const SKILL_META_TYPE = "SkillMeta";
 const SKILL_META_TITLE = "__skills_initialized__";
+const PROFILE_TYPE = "PortfolioProfile";
+const HOBBY_TYPE = "PortfolioHobby";
+const WORKING_STYLE_TYPE = "PortfolioWorkingStyle";
+const CONTENT_META_TYPE = "PortfolioContentMeta";
+const CONTENT_META_TITLE = "__editable_content_initialized__";
 
 type Theme = "dark" | "light";
 type MobileView = "home" | "works" | "skills" | "feedback" | "contact";
@@ -134,6 +139,38 @@ type SkillForm = {
   level: string;
 };
 
+type ProfileContent = {
+  id: number;
+  about: string;
+  school: string;
+  program: string;
+  section: string;
+  professor: string;
+  imageUrl: string;
+  createdAt: string;
+};
+
+type ProfileForm = Omit<ProfileContent, "id" | "createdAt">;
+
+type Hobby = {
+  id: number;
+  title: string;
+  description: string;
+  imageUrl: string;
+  createdAt: string;
+};
+
+type HobbyForm = Omit<Hobby, "id" | "createdAt">;
+
+type WorkingStyle = {
+  id: number;
+  title: string;
+  description: string;
+  createdAt: string;
+};
+
+type WorkingStyleForm = Omit<WorkingStyle, "id" | "createdAt">;
+
 type VisitDetails = {
   sessionId: string;
   device: string;
@@ -201,6 +238,87 @@ const emptySkillForm: SkillForm = {
   level: "Learning",
 };
 
+const DEFAULT_PROFILE: ProfileContent = {
+  id: -1,
+  about:
+    "I’m a 2ND-YEAR BSIT student who enjoys turning school tasks into working ideas. I’m into cycling, gaming, music, and web design—and my goal is simple: become a vibe coder who keeps learning by building.",
+  school: "BESTLINK COLLEGE OF THE PHILIPPINES",
+  program: "BSIT · 2nd Year",
+  section: "MV-21010",
+  professor: "Mari Laynesa",
+  imageUrl: "/profile.jpg",
+  createdAt: "",
+};
+
+const DEFAULT_HOBBIES: Hobby[] = [
+  {
+    id: -1,
+    title: "Cycling",
+    description: "Focus, consistency, and a clear head.",
+    imageUrl: "",
+    createdAt: "",
+  },
+  {
+    id: -2,
+    title: "Gaming",
+    description: "Curiosity, strategy, and problem-solving.",
+    imageUrl: "",
+    createdAt: "",
+  },
+  {
+    id: -3,
+    title: "Music",
+    description: "A reset between projects and schoolwork.",
+    imageUrl: "",
+    createdAt: "",
+  },
+  {
+    id: -4,
+    title: "Web design",
+    description: "Turning an idea into something people can use.",
+    imageUrl: "",
+    createdAt: "",
+  },
+];
+
+const DEFAULT_WORKING_STYLES: WorkingStyle[] = [
+  {
+    id: -1,
+    title: "Creative thinking",
+    description: "Finding a cleaner way to solve a problem.",
+    createdAt: "",
+  },
+  {
+    id: -2,
+    title: "Adaptability",
+    description: "Learning through changes and feedback.",
+    createdAt: "",
+  },
+  {
+    id: -3,
+    title: "Attention to detail",
+    description: "Making the small parts feel intentional.",
+    createdAt: "",
+  },
+  {
+    id: -4,
+    title: "Self-directed learning",
+    description: "Building skills one project at a time.",
+    createdAt: "",
+  },
+];
+
+const emptyHobbyForm: HobbyForm = {
+  title: "",
+  description: "",
+  imageUrl: "",
+};
+
+const emptyWorkingStyleForm: WorkingStyleForm = {
+  title: "",
+  description: "",
+};
+
 function fromRow(row: ActivityRow): Activity {
   return {
     id: row.id,
@@ -249,6 +367,90 @@ function toSkillRow(form: SkillForm) {
     evidence_url: "",
     completed_on: new Date().toISOString().slice(0, 10),
   };
+}
+
+function fromProfileRow(row: ActivityRow): ProfileContent {
+  try {
+    const parsed = JSON.parse(row.description || "{}") as Partial<ProfileForm>;
+    return {
+      ...DEFAULT_PROFILE,
+      ...parsed,
+      id: row.id,
+      createdAt: row.created_at,
+    };
+  } catch {
+    return {
+      ...DEFAULT_PROFILE,
+      id: row.id,
+      createdAt: row.created_at,
+    };
+  }
+}
+
+function toProfileRow(form: ProfileForm) {
+  return {
+    title: "__portfolio_profile__",
+    type: PROFILE_TYPE,
+    description: JSON.stringify(form),
+    tools: "",
+    learnings: "",
+    thumbnail_url: "",
+    evidence_url: "",
+    completed_on: new Date().toISOString().slice(0, 10),
+  };
+}
+
+function fromHobbyRow(row: ActivityRow): Hobby {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || "",
+    imageUrl: row.thumbnail_url || "",
+    createdAt: row.created_at,
+  };
+}
+
+function toHobbyRow(form: HobbyForm) {
+  return {
+    title: form.title.trim(),
+    type: HOBBY_TYPE,
+    description: form.description.trim(),
+    tools: "",
+    learnings: "",
+    thumbnail_url: form.imageUrl.trim(),
+    evidence_url: "",
+    completed_on: new Date().toISOString().slice(0, 10),
+  };
+}
+
+function fromWorkingStyleRow(row: ActivityRow): WorkingStyle {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || "",
+    createdAt: row.created_at,
+  };
+}
+
+function toWorkingStyleRow(form: WorkingStyleForm) {
+  return {
+    title: form.title.trim(),
+    type: WORKING_STYLE_TYPE,
+    description: form.description.trim(),
+    tools: "",
+    learnings: "",
+    thumbnail_url: "",
+    evidence_url: "",
+    completed_on: new Date().toISOString().slice(0, 10),
+  };
+}
+
+function HobbyIcon({ title }: { title: string }) {
+  const name = title.toLowerCase();
+  if (name.includes("cycl")) return <Bike size={20} aria-hidden="true" />;
+  if (name.includes("game")) return <Gamepad2 size={20} aria-hidden="true" />;
+  if (name.includes("music")) return <Music2 size={20} aria-hidden="true" />;
+  return <Code2 size={20} aria-hidden="true" />;
 }
 
 function displayDate(value: string, withTime = false) {
@@ -571,13 +773,31 @@ function DeviceIcon({ device }: { device: string }) {
 export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }) {
   const [items, setItems] = useState<Activity[]>([]);
   const [skills, setSkills] = useState<PortfolioSkill[]>(DEFAULT_SKILLS);
+  const [profile, setProfile] = useState<ProfileContent>(DEFAULT_PROFILE);
+  const [hobbies, setHobbies] = useState<Hobby[]>(DEFAULT_HOBBIES);
+  const [workingStyles, setWorkingStyles] = useState<WorkingStyle[]>(
+    DEFAULT_WORKING_STYLES,
+  );
   const [activityForm, setActivityForm] =
     useState<ActivityForm>(emptyActivityForm);
   const [skillForm, setSkillForm] = useState<SkillForm>(emptySkillForm);
+  const [profileForm, setProfileForm] = useState<ProfileForm>(() => {
+    const { id, createdAt, ...values } = DEFAULT_PROFILE;
+    void id;
+    void createdAt;
+    return values;
+  });
+  const [hobbyForm, setHobbyForm] = useState<HobbyForm>(emptyHobbyForm);
+  const [workingStyleForm, setWorkingStyleForm] =
+    useState<WorkingStyleForm>(emptyWorkingStyleForm);
   const [editingActivityId, setEditingActivityId] = useState<number | null>(
     null,
   );
   const [editingSkillId, setEditingSkillId] = useState<number | null>(null);
+  const [editingHobbyId, setEditingHobbyId] = useState<number | null>(null);
+  const [editingWorkingStyleId, setEditingWorkingStyleId] = useState<
+    number | null
+  >(null);
   const [session, setSession] = useState<Session | null>(null);
   const [comments, setComments] = useState<ActivityComment[]>([]);
   const [commentMetadata, setCommentMetadata] = useState<
@@ -590,11 +810,15 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
   >({});
   const [activityOpen, setActivityOpen] = useState(false);
   const [skillOpen, setSkillOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [hobbyOpen, setHobbyOpen] = useState(false);
+  const [workingStyleOpen, setWorkingStyleOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("home");
   const [theme, setTheme] = useState<Theme>("dark");
   const [loading, setLoading] = useState(true);
   const [skillsReady, setSkillsReady] = useState(false);
+  const [contentReady, setContentReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -609,6 +833,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
   >("All");
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [homePreviewIndex, setHomePreviewIndex] = useState(0);
 
   async function loadPortfolioContent() {
     try {
@@ -621,8 +846,16 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
       if (!response.ok) throw new Error(data.message || "Unable to load.");
 
       const rows = data as ActivityRow[];
+      const hiddenTypes = new Set([
+        SKILL_TYPE,
+        SKILL_META_TYPE,
+        PROFILE_TYPE,
+        HOBBY_TYPE,
+        WORKING_STYLE_TYPE,
+        CONTENT_META_TYPE,
+      ]);
       const regularRows = rows.filter(
-        (row) => row.type !== SKILL_TYPE && row.type !== SKILL_META_TYPE,
+        (row) => !hiddenTypes.has(row.type),
       );
       const skillRows = rows
         .filter((row) => row.type === SKILL_TYPE)
@@ -634,6 +867,23 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
         (row) =>
           row.type === SKILL_META_TYPE && row.title === SKILL_META_TITLE,
       );
+      const profileRow = rows.find((row) => row.type === PROFILE_TYPE);
+      const hobbyRows = rows
+        .filter((row) => row.type === HOBBY_TYPE)
+        .sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        );
+      const workingStyleRows = rows
+        .filter((row) => row.type === WORKING_STYLE_TYPE)
+        .sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        );
+      const hasContentMarker = rows.some(
+        (row) =>
+          row.type === CONTENT_META_TYPE && row.title === CONTENT_META_TITLE,
+      );
 
       setItems(regularRows.map(fromRow));
       setSkills(
@@ -644,6 +894,16 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
             : DEFAULT_SKILLS,
       );
       setSkillsReady(hasMarker);
+      setProfile(profileRow ? fromProfileRow(profileRow) : DEFAULT_PROFILE);
+      setHobbies(
+        hobbyRows.length > 0 ? hobbyRows.map(fromHobbyRow) : DEFAULT_HOBBIES,
+      );
+      setWorkingStyles(
+        workingStyleRows.length > 0
+          ? workingStyleRows.map(fromWorkingStyleRow)
+          : DEFAULT_WORKING_STYLES,
+      );
+      setContentReady(hasContentMarker);
     } catch {
       setNotice("Hindi ma-load ang portfolio data. Please try again.");
     } finally {
@@ -771,6 +1031,81 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
     await loadPortfolioContent();
   }
 
+  async function ensureEditableContentSeeded(activeSession: Session) {
+    const response = await fetchWithTimeout(
+      SUPABASE_URL +
+        "/rest/v1/activities?select=*&type=in.(PortfolioProfile,PortfolioHobby,PortfolioWorkingStyle,PortfolioContentMeta)&order=created_at.asc",
+      { headers: apiHeaders(activeSession), cache: "no-store" },
+    );
+    const rows = (await response.json()) as ActivityRow[];
+
+    if (!response.ok) {
+      throw new Error("Profile content could not be prepared for editing.");
+    }
+
+    const hasMarker = rows.some(
+      (row) =>
+        row.type === CONTENT_META_TYPE && row.title === CONTENT_META_TITLE,
+    );
+
+    if (!hasMarker) {
+      const payload = [
+        ...(!rows.some((row) => row.type === PROFILE_TYPE)
+          ? (() => {
+              const { id, createdAt, ...profileValues } = DEFAULT_PROFILE;
+              void id;
+              void createdAt;
+              return [toProfileRow(profileValues)];
+            })()
+          : []),
+        ...(!rows.some((row) => row.type === HOBBY_TYPE)
+          ? DEFAULT_HOBBIES.map(({ id, createdAt, ...hobby }) => {
+              void id;
+              void createdAt;
+              return toHobbyRow(hobby);
+            })
+          : []),
+        ...(!rows.some((row) => row.type === WORKING_STYLE_TYPE)
+          ? DEFAULT_WORKING_STYLES.map(({ id, createdAt, ...workingStyle }) => {
+              void id;
+              void createdAt;
+              return toWorkingStyleRow(workingStyle);
+            })
+          : []),
+        {
+          title: CONTENT_META_TITLE,
+          type: CONTENT_META_TYPE,
+          description:
+            "Keeps deliberately empty hobbies and working styles from resetting.",
+          tools: "",
+          learnings: "",
+          thumbnail_url: "",
+          evidence_url: "",
+          completed_on: new Date().toISOString().slice(0, 10),
+        },
+      ];
+
+      const seedResponse = await fetchWithTimeout(
+        SUPABASE_URL + "/rest/v1/activities",
+        {
+          method: "POST",
+          headers: {
+            ...apiHeaders(activeSession),
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!seedResponse.ok) {
+        throw new Error("Profile content could not be prepared for editing.");
+      }
+    }
+
+    setContentReady(true);
+    await loadPortfolioContent();
+  }
+
   async function restoreSession(storedValue: string) {
     try {
       const saved = JSON.parse(storedValue) as Session;
@@ -805,6 +1140,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
       await Promise.all([
         loadAdminData(activeSession),
         ensureSkillsSeeded(activeSession),
+        ensureEditableContentSeeded(activeSession),
       ]);
     } catch {
       localStorage.removeItem(SESSION_KEY);
@@ -936,6 +1272,18 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
     return () => window.removeEventListener("scroll", updateBackToTop);
   }, []);
 
+  useEffect(() => {
+    document.documentElement.classList.remove("is-page-leaving");
+  }, [route]);
+
+  useEffect(() => {
+    if (items.length < 2) return;
+    const previewTimer = window.setInterval(() => {
+      setHomePreviewIndex((current) => (current + 1) % items.length);
+    }, 3600);
+    return () => window.clearInterval(previewTimer);
+  }, [items.length]);
+
   const counts = useMemo(
     () => ({
       all: items.length,
@@ -957,6 +1305,10 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
       return matchesType && (!query || searchable.includes(query));
     });
   }, [items, projectFilter, projectQuery]);
+
+  const previewItem = items.length
+    ? items[homePreviewIndex % items.length]
+    : null;
 
   function toggleTheme() {
     const nextTheme: Theme = theme === "dark" ? "light" : "dark";
@@ -999,7 +1351,15 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
         route === "contact");
 
     if (!isCurrentPage) {
-      window.location.assign(destination);
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      if (reduceMotion) {
+        window.location.assign(destination);
+        return;
+      }
+      document.documentElement.classList.add("is-page-leaving");
+      window.setTimeout(() => window.location.assign(destination), 360);
       return;
     }
 
@@ -1102,6 +1462,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
       await Promise.all([
         loadAdminData(nextSession),
         ensureSkillsSeeded(nextSession),
+        ensureEditableContentSeeded(nextSession),
       ]);
       setLoginOpen(false);
       setNotice("Admin mode enabled.");
@@ -1255,7 +1616,10 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
     }
   }
 
-  async function uploadThumbnail(file: File) {
+  async function uploadImage(
+    file: File,
+    onUploaded: (imageUrl: string) => void,
+  ) {
     if (!session) {
       setLoginOpen(true);
       return;
@@ -1302,19 +1666,23 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
 
       if (!response.ok) throw new Error("Image upload failed.");
 
-      setActivityForm((current) => ({
-        ...current,
-        thumbnailUrl:
-          SUPABASE_URL +
+      onUploaded(
+        SUPABASE_URL +
           "/storage/v1/object/public/activity-thumbnails/" +
           fileName,
-      }));
+      );
       setNotice("Image uploaded and optimized.");
     } catch {
       setNotice("Hindi na-upload ang image. Please try again.");
     } finally {
       setUploadingImage(false);
     }
+  }
+
+  async function uploadThumbnail(file: File) {
+    await uploadImage(file, (imageUrl) => {
+      setActivityForm((current) => ({ ...current, thumbnailUrl: imageUrl }));
+    });
   }
 
   async function submitActivity(event: FormEvent) {
@@ -1437,6 +1805,221 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
     }
   }
 
+  function requestEditProfile() {
+    if (!session) {
+      setLoginError("");
+      setLoginOpen(true);
+      return;
+    }
+    if (!contentReady) {
+      setNotice("Profile editor is still preparing. Please try again shortly.");
+      return;
+    }
+
+    const { id, createdAt, ...values } = profile;
+    void id;
+    void createdAt;
+    setProfileForm(values);
+    setProfileOpen(true);
+  }
+
+  async function submitProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!session || !contentReady) return;
+
+    setSaving(true);
+    try {
+      const response = await fetchWithTimeout(
+        SUPABASE_URL + "/rest/v1/activities?id=eq." + profile.id,
+        {
+          method: "PATCH",
+          headers: { ...apiHeaders(session), Prefer: "return=representation" },
+          body: JSON.stringify(toProfileRow(profileForm)),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Profile could not be saved.");
+      }
+
+      await loadPortfolioContent();
+      setProfileOpen(false);
+      setNotice("About me updated.");
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Profile could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function requestAddHobby() {
+    if (!session) {
+      setLoginError("");
+      setLoginOpen(true);
+      return;
+    }
+    if (!contentReady) {
+      setNotice("Hobby editor is still preparing. Please try again shortly.");
+      return;
+    }
+
+    setEditingHobbyId(null);
+    setHobbyForm(emptyHobbyForm);
+    setHobbyOpen(true);
+  }
+
+  function startEditHobby(hobby: Hobby) {
+    if (!session || !contentReady || hobby.id < 0) return;
+    setEditingHobbyId(hobby.id);
+    setHobbyForm({
+      title: hobby.title,
+      description: hobby.description,
+      imageUrl: hobby.imageUrl,
+    });
+    setHobbyOpen(true);
+  }
+
+  async function submitHobby(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!session || !contentReady) return;
+
+    setSaving(true);
+    const url = editingHobbyId
+      ? SUPABASE_URL + "/rest/v1/activities?id=eq." + editingHobbyId
+      : SUPABASE_URL + "/rest/v1/activities";
+
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: editingHobbyId ? "PATCH" : "POST",
+        headers: { ...apiHeaders(session), Prefer: "return=representation" },
+        body: JSON.stringify(toHobbyRow(hobbyForm)),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Hobby could not be saved.");
+      }
+
+      await loadPortfolioContent();
+      setHobbyOpen(false);
+      setNotice(editingHobbyId ? "Hobby updated." : "Hobby added.");
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Hobby could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeHobby(hobby: Hobby) {
+    if (
+      !session ||
+      hobby.id < 0 ||
+      !window.confirm("Remove “" + hobby.title + "” from your hobbies?")
+    ) {
+      return;
+    }
+
+    const response = await fetchWithTimeout(
+      SUPABASE_URL + "/rest/v1/activities?id=eq." + hobby.id,
+      { method: "DELETE", headers: apiHeaders(session) },
+    );
+    if (response.ok) {
+      setHobbies((current) => current.filter((entry) => entry.id !== hobby.id));
+      setNotice("Hobby removed.");
+    } else {
+      setNotice("Hobby could not be removed.");
+    }
+  }
+
+  function requestAddWorkingStyle() {
+    if (!session) {
+      setLoginError("");
+      setLoginOpen(true);
+      return;
+    }
+    if (!contentReady) {
+      setNotice("Working style editor is still preparing. Please try again shortly.");
+      return;
+    }
+
+    setEditingWorkingStyleId(null);
+    setWorkingStyleForm(emptyWorkingStyleForm);
+    setWorkingStyleOpen(true);
+  }
+
+  function startEditWorkingStyle(style: WorkingStyle) {
+    if (!session || !contentReady || style.id < 0) return;
+    setEditingWorkingStyleId(style.id);
+    setWorkingStyleForm({ title: style.title, description: style.description });
+    setWorkingStyleOpen(true);
+  }
+
+  async function submitWorkingStyle(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!session || !contentReady) return;
+
+    setSaving(true);
+    const url = editingWorkingStyleId
+      ? SUPABASE_URL +
+        "/rest/v1/activities?id=eq." +
+        editingWorkingStyleId
+      : SUPABASE_URL + "/rest/v1/activities";
+
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: editingWorkingStyleId ? "PATCH" : "POST",
+        headers: { ...apiHeaders(session), Prefer: "return=representation" },
+        body: JSON.stringify(toWorkingStyleRow(workingStyleForm)),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Working style could not be saved.");
+      }
+
+      await loadPortfolioContent();
+      setWorkingStyleOpen(false);
+      setNotice(
+        editingWorkingStyleId
+          ? "Working style updated."
+          : "Working style added.",
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Working style could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeWorkingStyle(style: WorkingStyle) {
+    if (
+      !session ||
+      style.id < 0 ||
+      !window.confirm("Remove “" + style.title + "” from working style?")
+    ) {
+      return;
+    }
+
+    const response = await fetchWithTimeout(
+      SUPABASE_URL + "/rest/v1/activities?id=eq." + style.id,
+      { method: "DELETE", headers: apiHeaders(session) },
+    );
+    if (response.ok) {
+      setWorkingStyles((current) =>
+        current.filter((entry) => entry.id !== style.id),
+      );
+      setNotice("Working style removed.");
+    } else {
+      setNotice("Working style could not be removed.");
+    }
+  }
+
   const homeActive =
     mobileView === "home" || route === "about" ? " is-active" : "";
   const worksActive =
@@ -1450,20 +2033,43 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
 
   return (
     <main
-      className={route === "home" ? "portfolio-app" : "portfolio-app route-" + route}
+      className={
+        route === "home" ? "portfolio-app" : "portfolio-app route-" + route
+      }
       data-mobile-view={mobileView}
     >
+      <div className="page-transition-curtain" aria-hidden="true">
+        <span>CA.</span>
+      </div>
       <nav className="nav" aria-label="Main navigation">
-        <Link className="brand" href="/" aria-label="Carl Anthony home">
+        <Link
+          className="brand"
+          href="/"
+          data-page-link
+          aria-label="Carl Anthony home"
+        >
           CA<span>.</span>
         </Link>
 
         <div className="nav-links">
-          <Link href="/about">About</Link>
-          <Link href="/projects">Activities</Link>
-          <Link href="/skills">Skills</Link>
-          <Link href="/contact#feedback">Feedback</Link>
-          <Link href="/contact">Contact</Link>
+          <Link href="/" data-page-link>
+            Home
+          </Link>
+          <Link href="/about" data-page-link>
+            About
+          </Link>
+          <Link href="/projects" data-page-link>
+            Activities
+          </Link>
+          <Link href="/skills" data-page-link>
+            Skills
+          </Link>
+          <Link href="/contact#feedback" data-page-link>
+            Feedback
+          </Link>
+          <Link href="/contact" data-page-link>
+            Contact
+          </Link>
           {session && (
             <button className="small-add" onClick={requestAddActivity}>
               <Plus size={16} /> Add activity
@@ -1524,6 +2130,49 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
         </div>
       </nav>
 
+      <nav className="nav-rail" aria-label="Portfolio index">
+        <Link
+          className={route === "home" ? "active" : ""}
+          href="/"
+          data-page-link
+          aria-label="Home"
+          aria-current={route === "home" ? "page" : undefined}
+        >
+          <span>01</span>
+          <Home size={15} aria-hidden="true" />
+        </Link>
+        <Link
+          className={route === "about" ? "active" : ""}
+          href="/about"
+          data-page-link
+          aria-label="About"
+          aria-current={route === "about" ? "page" : undefined}
+        >
+          <span>02</span>
+          <UserRound size={15} aria-hidden="true" />
+        </Link>
+        <Link
+          className={route === "projects" ? "active" : ""}
+          href="/projects"
+          data-page-link
+          aria-label="Activities and projects"
+          aria-current={route === "projects" ? "page" : undefined}
+        >
+          <span>03</span>
+          <FolderKanban size={15} aria-hidden="true" />
+        </Link>
+        <Link
+          className={route === "skills" ? "active" : ""}
+          href="/skills"
+          data-page-link
+          aria-label="Skills"
+          aria-current={route === "skills" ? "page" : undefined}
+        >
+          <span>04</span>
+          <Sparkles size={15} aria-hidden="true" />
+        </Link>
+      </nav>
+
       {notice && (
         <div className="app-toast" role="status">
           <span>{notice}</span>
@@ -1548,9 +2197,9 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
           </div>
           <p className="eyebrow">BSIT STUDENT · ACADEMIC PORTFOLIO</p>
           <h1>
-            Learning by
+            Building ideas
             <br />
-            <span>building.</span>
+            <span>with intent.</span>
           </h1>
           <p className="intro">
             Hi, I’m <strong>Carl Anthony Eguizabal</strong>. This portfolio
@@ -1573,10 +2222,18 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
                 <ShieldCheck size={18} /> Admin login
               </button>
             )}
-            <Link className="secondary mobile-work-button" href="/projects">
+            <Link
+              className="secondary mobile-work-button"
+              href="/projects"
+              data-page-link
+            >
               View my work
             </Link>
-            <Link className="secondary desktop-work-link" href="/projects">
+            <Link
+              className="secondary desktop-work-link"
+              href="/projects"
+              data-page-link
+            >
               View my work
             </Link>
           </div>
@@ -1588,16 +2245,51 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
           </div>
         </div>
 
-        <div className="portrait">
-          <img
-            src="https://carlanthonyeguizabal1504.github.io/profile.jpg"
-            alt="Carl Anthony Eguizabal"
-            width={1254}
-            height={1254}
-            decoding="async"
-            fetchPriority="high"
-          />
-          <span className="portrait-label">CARL ANTHONY · BSIT</span>
+        <div className="home-showcase" aria-label="A preview of the portfolio">
+          <div className="showcase-noise" aria-hidden="true" />
+          {previewItem?.thumbnailUrl && (
+            <img
+              className="showcase-preview-image"
+              src={previewItem.thumbnailUrl}
+              alt=""
+              aria-hidden="true"
+            />
+          )}
+          <div className="showcase-orbit orbit-one" aria-hidden="true" />
+          <div className="showcase-orbit orbit-two" aria-hidden="true" />
+          <div className="showcase-profile">
+            <img
+              src={profile.imageUrl || "/profile.jpg"}
+              alt="Carl Anthony Eguizabal"
+              width={1254}
+              height={1254}
+              decoding="async"
+              fetchPriority="high"
+            />
+            <span>CARL A. EGUIZABAL</span>
+          </div>
+          <div className="showcase-preview-card" key={previewItem?.id || "intro"}>
+            <div className="preview-card-top">
+              <span>PORTFOLIO PREVIEW</span>
+              <b>
+                {String((items.length ? homePreviewIndex % items.length : 0) + 1).padStart(2, "0")}
+                /{String(Math.max(items.length, 1)).padStart(2, "0")}
+              </b>
+            </div>
+            <p className="preview-type">{previewItem?.type || "ACADEMIC WORK"}</p>
+            <strong>{previewItem?.title || "Activities, projects & growth"}</strong>
+            <p>
+              {previewItem?.description ||
+                "A quick look at the school outputs, skills, and ideas inside this portfolio."}
+            </p>
+            <Link href="/projects" data-page-link>
+              Explore work <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
+          <div className="showcase-caption">
+            <span className="status-dot" aria-hidden="true" />
+            Updated as I learn
+          </div>
         </div>
       </section>
 
@@ -1614,54 +2306,74 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
             <p>PROFILE</p>
             <h2>About me</h2>
           </div>
+          {session && (
+            <button className="secondary heading-action" onClick={requestEditProfile}>
+              <Pencil size={17} /> Edit about
+            </button>
+          )}
         </div>
         <div className="about-grid">
-          <p className="about-lead">
-            I’m a 2ND-YEAR BSIT student who enjoys turning school tasks into
-            working ideas. I’m into cycling, gaming, music, and web design—and
-            my goal is simple: become a vibe coder who keeps learning by
-            building.
-          </p>
+          <p className="about-lead">{profile.about}</p>
           <dl className="student-info">
             <div>
               <dt>School</dt>
-              <dd>BESTLINK COLLEGE OF THE PHILIPPINES</dd>
+              <dd>{profile.school}</dd>
             </div>
             <div>
               <dt>Program & Year</dt>
-              <dd>BSIT · 2nd Year</dd>
+              <dd>{profile.program}</dd>
             </div>
             <div>
               <dt>Section</dt>
-              <dd>MV-21010</dd>
+              <dd>{profile.section}</dd>
             </div>
             <div>
               <dt>Professor</dt>
-              <dd>Mari Laynesa</dd>
+              <dd>{profile.professor}</dd>
             </div>
           </dl>
         </div>
+        <div className="interest-heading">
+          <p className="eyebrow">OUTSIDE THE SCREEN</p>
+          {session && (
+            <button className="text-button" type="button" onClick={requestAddHobby}>
+              <Plus size={16} /> Add hobby
+            </button>
+          )}
+        </div>
         <div className="interest-grid" aria-label="Personal interests">
-          <article>
-            <Bike size={20} aria-hidden="true" />
-            <strong>Cycling</strong>
-            <span>Focus, consistency, and a clear head.</span>
-          </article>
-          <article>
-            <Gamepad2 size={20} aria-hidden="true" />
-            <strong>Gaming</strong>
-            <span>Curiosity, strategy, and problem-solving.</span>
-          </article>
-          <article>
-            <Music2 size={20} aria-hidden="true" />
-            <strong>Music</strong>
-            <span>A reset between projects and schoolwork.</span>
-          </article>
-          <article>
-            <Code2 size={20} aria-hidden="true" />
-            <strong>Web design</strong>
-            <span>Turning an idea into something people can use.</span>
-          </article>
+          {hobbies.map((hobby) => (
+            <article className={hobby.imageUrl ? "has-image" : ""} key={hobby.id}>
+              {hobby.imageUrl ? (
+                <img src={hobby.imageUrl} alt="" aria-hidden="true" />
+              ) : (
+                <HobbyIcon title={hobby.title} />
+              )}
+              <div className="interest-copy">
+                <strong>{hobby.title}</strong>
+                <span>{hobby.description || "A little part of who I am."}</span>
+              </div>
+              {session && contentReady && hobby.id > 0 && (
+                <div className="content-card-actions">
+                  <button
+                    type="button"
+                    onClick={() => startEditHobby(hobby)}
+                    aria-label={"Edit " + hobby.title}
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="delete"
+                    onClick={() => removeHobby(hobby)}
+                    aria-label={"Remove " + hobby.title}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              )}
+            </article>
+          ))}
         </div>
       </section>
 
@@ -2044,13 +2756,45 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
             ))}
           </div>
         )}
-        <div className="personal-skills" aria-label="Personal skills">
-          <p className="eyebrow">WORKING STYLE</p>
-          <div>
-            <span>Creative thinking</span>
-            <span>Adaptability</span>
-            <span>Attention to detail</span>
-            <span>Self-directed learning</span>
+        <div className="personal-skills" aria-label="Working style">
+          <div className="working-style-heading">
+            <p className="eyebrow">WORKING STYLE</p>
+            {session && (
+              <button
+                className="text-button"
+                type="button"
+                onClick={requestAddWorkingStyle}
+              >
+                <Plus size={16} /> Add style
+              </button>
+            )}
+          </div>
+          <div className="working-style-grid">
+            {workingStyles.map((style) => (
+              <article key={style.id}>
+                <strong>{style.title}</strong>
+                {style.description && <span>{style.description}</span>}
+                {session && contentReady && style.id > 0 && (
+                  <div className="content-card-actions">
+                    <button
+                      type="button"
+                      onClick={() => startEditWorkingStyle(style)}
+                      aria-label={"Edit " + style.title}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="delete"
+                      onClick={() => removeWorkingStyle(style)}
+                      aria-label={"Remove " + style.title}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -2237,43 +2981,69 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
         )}
       </section>
 
-      <footer
+      <section
         className={
-          "page-section page-contact-section mobile-panel mobile-contact" +
+          "section shell page-section page-contact-section contact-section mobile-panel mobile-contact" +
           contactActive
         }
         id="contact"
       >
-        <div className="shell footer-inner">
+        <div className="section-heading">
+          <span>05</span>
           <div>
-            <p className="eyebrow">LET&apos;S CONNECT</p>
-            <h2>
-              <a
-                href="https://mail.google.com/mail/?view=cm&fs=1&to=eguizabalcarl77@gmail.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                eguizabalcarl77@gmail.com
-              </a>
-            </h2>
+            <p>CONTACT</p>
+            <h2>Let&apos;s connect</h2>
           </div>
+        </div>
+        <p className="contact-lead">
+          Questions, feedback, or a quick hello? You can reach me through any
+          of these channels.
+        </p>
+        <div className="contact-grid">
+          <a href="tel:+639451973528">
+            <span>PHONE</span>
+            <strong>0945 197 3528</strong>
+            <em>Call or text</em>
+          </a>
+          <a
+            href="https://mail.google.com/mail/?view=cm&fs=1&to=eguizabalcarl77@gmail.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>EMAIL</span>
+            <strong>Send an email</strong>
+            <em>eguizabalcarl77@gmail.com</em>
+          </a>
+          <a
+            href="https://github.com/carlanthonyeguizabal1504"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>GITHUB</span>
+            <strong>View my code</strong>
+            <em>@carlanthonyeguizabal1504</em>
+          </a>
+        </div>
+      </section>
 
-          <div className="footer-links">
-            <a href="tel:+639451973528">0945 197 3528</a>
-            <a
-              href="https://mail.google.com/mail/?view=cm&fs=1&to=eguizabalcarl77@gmail.com"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Email
-            </a>
-            <a
-              href="https://github.com/carlanthonyeguizabal1504"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub
-            </a>
+      <footer
+        className={
+          "site-footer page-section page-contact-section mobile-panel mobile-contact" +
+          contactActive
+        }
+      >
+        <div className="shell site-footer-inner">
+          <Link className="footer-mark" href="/" data-page-link>
+            CA<span>.</span>
+          </Link>
+          <p>
+            © 2026 Carl Anthony Eguizabal<br />
+            Academic portfolio for IT ELECTIVE 1.
+          </p>
+          <div>
+            <button type="button" onClick={reopenPrivacySettings}>
+              Privacy settings
+            </button>
             <a
               href="https://www.facebook.com/kal.el.666172"
               target="_blank"
@@ -2281,13 +3051,7 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
             >
               Facebook
             </a>
-            <button type="button" onClick={reopenPrivacySettings}>
-              Privacy settings
-            </button>
           </div>
-          <p className="copyright">
-            © 2026 Carl Anthony Eguizabal. Academic portfolio for IT ELECTIVE 1.
-          </p>
         </div>
       </footer>
 
@@ -2642,6 +3406,368 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
                     : editingSkillId
                       ? "Save changes"
                       : "Add skill"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {profileOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) =>
+            event.target === event.currentTarget && setProfileOpen(false)
+          }
+        >
+          <section
+            className="modal content-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-form-title"
+          >
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">PROFILE CONTENT</p>
+                <h2 id="profile-form-title">Edit about me</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileOpen(false)}
+                aria-label="Close"
+              >
+                <X />
+              </button>
+            </div>
+            <form onSubmit={submitProfile}>
+              <label>
+                About me *
+                <textarea
+                  required
+                  minLength={20}
+                  maxLength={1000}
+                  rows={5}
+                  value={profileForm.about}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      about: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <div className="form-row">
+                <label>
+                  School *
+                  <input
+                    required
+                    value={profileForm.school}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        school: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Program & year *
+                  <input
+                    required
+                    value={profileForm.program}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        program: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+              <div className="form-row">
+                <label>
+                  Section *
+                  <input
+                    required
+                    value={profileForm.section}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        section: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Professor *
+                  <input
+                    required
+                    value={profileForm.professor}
+                    onChange={(event) =>
+                      setProfileForm((current) => ({
+                        ...current,
+                        professor: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+              <label>
+                Profile image URL (optional)
+                <input
+                  type="url"
+                  value={profileForm.imageUrl}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      imageUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="Paste an image link or upload one below"
+                />
+              </label>
+              <label>
+                Upload profile image (JPG, PNG, or WebP)
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploadingImage}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    void uploadImage(file, (imageUrl) => {
+                      setProfileForm((current) => ({
+                        ...current,
+                        imageUrl,
+                      }));
+                    });
+                  }}
+                />
+              </label>
+              {profileForm.imageUrl && (
+                <div className="thumbnail-preview compact-preview">
+                  <img
+                    src={profileForm.imageUrl}
+                    alt="Profile preview"
+                    width={500}
+                    height={500}
+                  />
+                </div>
+              )}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button className="primary" disabled={saving || uploadingImage}>
+                  {saving ? "Saving…" : "Save profile"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {hobbyOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) =>
+            event.target === event.currentTarget && setHobbyOpen(false)
+          }
+        >
+          <section
+            className="modal content-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="hobby-form-title"
+          >
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">PERSONAL INTEREST</p>
+                <h2 id="hobby-form-title">
+                  {editingHobbyId ? "Edit hobby" : "Add a hobby"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHobbyOpen(false)}
+                aria-label="Close"
+              >
+                <X />
+              </button>
+            </div>
+            <form onSubmit={submitHobby}>
+              <label>
+                Hobby name *
+                <input
+                  required
+                  minLength={2}
+                  maxLength={60}
+                  value={hobbyForm.title}
+                  onChange={(event) =>
+                    setHobbyForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  placeholder="Example: Cycling"
+                />
+              </label>
+              <label>
+                Short description
+                <textarea
+                  rows={3}
+                  maxLength={250}
+                  value={hobbyForm.description}
+                  onChange={(event) =>
+                    setHobbyForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                  placeholder="What do you enjoy about it?"
+                />
+              </label>
+              <label>
+                Image URL (optional)
+                <input
+                  type="url"
+                  value={hobbyForm.imageUrl}
+                  onChange={(event) =>
+                    setHobbyForm((current) => ({
+                      ...current,
+                      imageUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="Paste an image link or upload one below"
+                />
+              </label>
+              <label>
+                Upload hobby image (JPG, PNG, or WebP)
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploadingImage}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    void uploadImage(file, (imageUrl) => {
+                      setHobbyForm((current) => ({
+                        ...current,
+                        imageUrl,
+                      }));
+                    });
+                  }}
+                />
+              </label>
+              {hobbyForm.imageUrl && (
+                <div className="thumbnail-preview compact-preview">
+                  <img
+                    src={hobbyForm.imageUrl}
+                    alt="Hobby preview"
+                    width={800}
+                    height={450}
+                  />
+                </div>
+              )}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setHobbyOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button className="primary" disabled={saving || uploadingImage}>
+                  {saving
+                    ? "Saving…"
+                    : editingHobbyId
+                      ? "Save hobby"
+                      : "Add hobby"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {workingStyleOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) =>
+            event.target === event.currentTarget && setWorkingStyleOpen(false)
+          }
+        >
+          <section
+            className="modal skill-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="working-style-form-title"
+          >
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">WORKING STYLE</p>
+                <h2 id="working-style-form-title">
+                  {editingWorkingStyleId ? "Edit style" : "Add a style"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWorkingStyleOpen(false)}
+                aria-label="Close"
+              >
+                <X />
+              </button>
+            </div>
+            <form onSubmit={submitWorkingStyle}>
+              <label>
+                Style name *
+                <input
+                  required
+                  minLength={2}
+                  maxLength={60}
+                  value={workingStyleForm.title}
+                  onChange={(event) =>
+                    setWorkingStyleForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  placeholder="Example: Creative thinking"
+                />
+              </label>
+              <label>
+                Short note
+                <textarea
+                  rows={3}
+                  maxLength={250}
+                  value={workingStyleForm.description}
+                  onChange={(event) =>
+                    setWorkingStyleForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                  placeholder="How does this show in your work?"
+                />
+              </label>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setWorkingStyleOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button className="primary" disabled={saving}>
+                  {saving
+                    ? "Saving…"
+                    : editingWorkingStyleId
+                      ? "Save style"
+                      : "Add style"}
                 </button>
               </div>
             </form>
