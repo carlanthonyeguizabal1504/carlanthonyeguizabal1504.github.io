@@ -3067,3 +3067,27 @@ footer {
     grid-column: auto;
   }
 }
+
+
+/* Uploaded hobby images stay atmospheric so the card copy remains readable. */
+.interest-grid article.has-image::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface) 88%, transparent), color-mix(in srgb, var(--surface-2) 68%, transparent));
+  content: "";
+}
+
+.interest-grid article > img {
+  z-index: 0;
+  opacity: 0.48;
+  filter: blur(12px) saturate(0.88) contrast(1.04);
+  transform: scale(1.12);
+  transition: filter 260ms ease, opacity 260ms ease, transform 320ms ease;
+}
+
+.interest-grid article.has-image:hover > img {
+  opacity: 0.56;
+  filter: blur(9px) saturate(0.95) contrast(1.06);
+  transform: scale(1.16);
+}
