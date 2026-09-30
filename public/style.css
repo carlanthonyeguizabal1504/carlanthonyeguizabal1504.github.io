@@ -1,0 +1,4 @@
+/* Course-friendly external stylesheet: loaded alongside the component styles. */
+html.js-ready {
+  scroll-behavior: smooth;
+}
