@@ -3755,8 +3755,8 @@ export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }
                 />
               </label>
               <p className="field-note">
-                Posted hobby images become a softly blurred card background so
-                your title and description stay easy to read.
+                Photos stay clear, with a light blur when hovered on desktop.
+                A shaded background keeps the text readable on every screen.
               </p>
               {hobbyForm.imageUrl && (
                 <div className="thumbnail-preview compact-preview">
