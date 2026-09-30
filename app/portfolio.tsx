@@ -1,22 +1,29 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowUp,
   BarChart3,
+  Bike,
   BookOpen,
   CalendarDays,
+  Code2,
   ContactRound,
   ExternalLink,
   FolderKanban,
+  Gamepad2,
   GraduationCap,
   Home,
   LogOut,
   MessageSquare,
   Monitor,
   Moon,
+  Music2,
   Pencil,
   Plus,
   Save,
+  Search,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -46,6 +53,12 @@ const SKILL_META_TITLE = "__skills_initialized__";
 type Theme = "dark" | "light";
 type MobileView = "home" | "works" | "skills" | "feedback" | "contact";
 type PrivacyConsent = "unknown" | "accepted" | "declined";
+export type PortfolioRoute =
+  | "home"
+  | "about"
+  | "skills"
+  | "projects"
+  | "contact";
 
 type Activity = {
   id: number;
@@ -248,6 +261,18 @@ function displayDate(value: string, withTime = false) {
     day: "numeric",
     ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}),
   }).format(date);
+}
+
+function displayPhilippineTime(value: Date) {
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(value);
 }
 
 function apiHeaders(session?: Session | null) {
@@ -543,7 +568,7 @@ function DeviceIcon({ device }: { device: string }) {
   return <Monitor size={17} aria-hidden="true" />;
 }
 
-export default function Portfolio() {
+export default function Portfolio({ route = "home" }: { route?: PortfolioRoute }) {
   const [items, setItems] = useState<Activity[]>([]);
   const [skills, setSkills] = useState<PortfolioSkill[]>(DEFAULT_SKILLS);
   const [activityForm, setActivityForm] =
@@ -578,6 +603,12 @@ export default function Portfolio() {
   const [loginError, setLoginError] = useState("");
   const [privacyConsent, setPrivacyConsent] =
     useState<PrivacyConsent>("unknown");
+  const [projectQuery, setProjectQuery] = useState("");
+  const [projectFilter, setProjectFilter] = useState<
+    "All" | "Activity" | "Project"
+  >("All");
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   async function loadPortfolioContent() {
     try {
@@ -848,10 +879,6 @@ export default function Portfolio() {
           ? "light"
           : "dark";
 
-    document.documentElement.dataset.theme = nextTheme;
-    setTheme(nextTheme);
-    setFeedbackSent(sessionStorage.getItem(FEEDBACK_SESSION_KEY) === "done");
-
     const hash = window.location.hash.replace("#", "");
     const hashView: Record<string, MobileView> = {
       home: "home",
@@ -861,7 +888,13 @@ export default function Portfolio() {
       feedback: "feedback",
       contact: "contact",
     };
-    if (hashView[hash]) setMobileView(hashView[hash]);
+
+    document.documentElement.dataset.theme = nextTheme;
+    const stateTimer = window.setTimeout(() => {
+      setTheme(nextTheme);
+      setFeedbackSent(sessionStorage.getItem(FEEDBACK_SESSION_KEY) === "done");
+      if (hashView[hash]) setMobileView(hashView[hash]);
+    }, 0);
 
     void loadPortfolioContent();
     void loadComments();
@@ -878,6 +911,7 @@ export default function Portfolio() {
     }
 
     return () => {
+      window.clearTimeout(stateTimer);
       if (visitTimer) window.clearTimeout(visitTimer);
     };
   }, []);
@@ -888,6 +922,20 @@ export default function Portfolio() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
+  useEffect(() => {
+    const updateTime = () => setCurrentTime(new Date());
+    updateTime();
+    const timer = window.setInterval(updateTime, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const updateBackToTop = () => setShowBackToTop(window.scrollY > 520);
+    updateBackToTop();
+    window.addEventListener("scroll", updateBackToTop, { passive: true });
+    return () => window.removeEventListener("scroll", updateBackToTop);
+  }, []);
+
   const counts = useMemo(
     () => ({
       all: items.length,
@@ -896,6 +944,19 @@ export default function Portfolio() {
     }),
     [items],
   );
+
+  const filteredItems = useMemo(() => {
+    const query = projectQuery.trim().toLowerCase();
+
+    return items.filter((item) => {
+      const matchesType =
+        projectFilter === "All" || item.type === projectFilter;
+      const searchable = [item.title, item.description, item.tools]
+        .join(" ")
+        .toLowerCase();
+      return matchesType && (!query || searchable.includes(query));
+    });
+  }, [items, projectFilter, projectQuery]);
 
   function toggleTheme() {
     const nextTheme: Theme = theme === "dark" ? "light" : "dark";
@@ -921,9 +982,29 @@ export default function Portfolio() {
   }
 
   function showMobileView(nextView: MobileView) {
+    const destinations: Record<MobileView, string> = {
+      home: "/",
+      works: "/projects",
+      skills: "/skills",
+      feedback: "/contact#feedback",
+      contact: "/contact",
+    };
+
+    const destination = destinations[nextView];
+    const isCurrentPage =
+      (nextView === "home" && route === "home") ||
+      (nextView === "works" && route === "projects") ||
+      (nextView === "skills" && route === "skills") ||
+      ((nextView === "feedback" || nextView === "contact") &&
+        route === "contact");
+
+    if (!isCurrentPage) {
+      window.location.assign(destination);
+      return;
+    }
+
     setMobileView(nextView);
-    const nextHash = nextView === "home" ? "home" : nextView;
-    window.history.replaceState(null, "", "#" + nextHash);
+    if (nextView === "feedback") window.location.hash = "feedback";
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
@@ -1356,35 +1437,33 @@ export default function Portfolio() {
     }
   }
 
-  const homeActive = mobileView === "home" ? " is-active" : "";
-  const worksActive = mobileView === "works" ? " is-active" : "";
-  const skillsActive = mobileView === "skills" ? " is-active" : "";
-  const feedbackActive = mobileView === "feedback" ? " is-active" : "";
-  const contactActive = mobileView === "contact" ? " is-active" : "";
+  const homeActive =
+    mobileView === "home" || route === "about" ? " is-active" : "";
+  const worksActive =
+    mobileView === "works" || route === "projects" ? " is-active" : "";
+  const skillsActive =
+    mobileView === "skills" || route === "skills" ? " is-active" : "";
+  const feedbackActive =
+    mobileView === "feedback" || route === "contact" ? " is-active" : "";
+  const contactActive =
+    mobileView === "contact" || route === "contact" ? " is-active" : "";
 
   return (
-    <main data-mobile-view={mobileView}>
+    <main
+      className={route === "home" ? "portfolio-app" : "portfolio-app route-" + route}
+      data-mobile-view={mobileView}
+    >
       <nav className="nav" aria-label="Main navigation">
-        <a
-          className="brand"
-          href="#home"
-          aria-label="Carl Anthony home"
-          onClick={(event) => {
-            if (window.matchMedia("(max-width: 800px)").matches) {
-              event.preventDefault();
-              showMobileView("home");
-            }
-          }}
-        >
+        <Link className="brand" href="/" aria-label="Carl Anthony home">
           CA<span>.</span>
-        </a>
+        </Link>
 
         <div className="nav-links">
-          <a href="#about">About</a>
-          <a href="#works">Activities</a>
-          <a href="#skills">Skills</a>
-          <a href="#feedback">Feedback</a>
-          <a href="#contact">Contact</a>
+          <Link href="/about">About</Link>
+          <Link href="/projects">Activities</Link>
+          <Link href="/skills">Skills</Link>
+          <Link href="/contact#feedback">Feedback</Link>
+          <Link href="/contact">Contact</Link>
           {session && (
             <button className="small-add" onClick={requestAddActivity}>
               <Plus size={16} /> Add activity
@@ -1455,7 +1534,10 @@ export default function Portfolio() {
       )}
 
       <section
-        className={"hero shell mobile-panel mobile-home" + homeActive}
+        className={
+          "hero shell page-section page-home-section mobile-panel mobile-home" +
+          homeActive
+        }
         id="home"
       >
         <div className="hero-copy">
@@ -1491,15 +1573,18 @@ export default function Portfolio() {
                 <ShieldCheck size={18} /> Admin login
               </button>
             )}
-            <button
-              className="secondary mobile-work-button"
-              onClick={() => showMobileView("works")}
-            >
+            <Link className="secondary mobile-work-button" href="/projects">
               View my work
-            </button>
-            <a className="secondary desktop-work-link" href="#works">
+            </Link>
+            <Link className="secondary desktop-work-link" href="/projects">
               View my work
-            </a>
+            </Link>
+          </div>
+          <div className="live-status" aria-live="polite">
+            <span className="live-status-label">Philippine time</span>
+            <strong>
+              {currentTime ? displayPhilippineTime(currentTime) : "Loading time..."}
+            </strong>
           </div>
         </div>
 
@@ -1517,7 +1602,10 @@ export default function Portfolio() {
       </section>
 
       <section
-        className={"section shell mobile-panel mobile-home" + homeActive}
+        className={
+          "section shell page-section page-about-section mobile-panel mobile-home" +
+          homeActive
+        }
         id="about"
       >
         <div className="section-heading">
@@ -1529,9 +1617,10 @@ export default function Portfolio() {
         </div>
         <div className="about-grid">
           <p className="about-lead">
-            I’m a 2ND-YEAR BSIT student who enjoys learning about technology,
-            programming, and web design. This portfolio shows how my skills
-            improve through every school output.
+            I’m a 2ND-YEAR BSIT student who enjoys turning school tasks into
+            working ideas. I’m into cycling, gaming, music, and web design—and
+            my goal is simple: become a vibe coder who keeps learning by
+            building.
           </p>
           <dl className="student-info">
             <div>
@@ -1552,11 +1641,34 @@ export default function Portfolio() {
             </div>
           </dl>
         </div>
+        <div className="interest-grid" aria-label="Personal interests">
+          <article>
+            <Bike size={20} aria-hidden="true" />
+            <strong>Cycling</strong>
+            <span>Focus, consistency, and a clear head.</span>
+          </article>
+          <article>
+            <Gamepad2 size={20} aria-hidden="true" />
+            <strong>Gaming</strong>
+            <span>Curiosity, strategy, and problem-solving.</span>
+          </article>
+          <article>
+            <Music2 size={20} aria-hidden="true" />
+            <strong>Music</strong>
+            <span>A reset between projects and schoolwork.</span>
+          </article>
+          <article>
+            <Code2 size={20} aria-hidden="true" />
+            <strong>Web design</strong>
+            <span>Turning an idea into something people can use.</span>
+          </article>
+        </div>
       </section>
 
       <section
         className={
-          "section works-section mobile-panel mobile-works" + worksActive
+          "section works-section page-section page-projects-section mobile-panel mobile-works" +
+          worksActive
         }
         id="works"
       >
@@ -1588,6 +1700,35 @@ export default function Portfolio() {
             )}
           </div>
 
+          <div className="project-explorer" aria-label="Search and filter activities">
+            <label className="project-search">
+              <Search size={17} aria-hidden="true" />
+              <input
+                type="search"
+                value={projectQuery}
+                onChange={(event) => setProjectQuery(event.target.value)}
+                placeholder="Search activities, tools, or projects"
+              />
+            </label>
+            <div className="filter-group" aria-label="Filter work type">
+              {(["All", "Activity", "Project"] as const).map((filter) => (
+                <button
+                  type="button"
+                  className={projectFilter === filter ? "active" : ""}
+                  onClick={() => setProjectFilter(filter)}
+                  key={filter}
+                >
+                  {filter === "All" ? "All work" : filter + "s"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {!loading && items.length > 0 && (
+            <p className="result-count">
+              Showing {filteredItems.length} of {items.length} saved outputs
+            </p>
+          )}
+
           {loading ? (
             <div className="work-grid loading-grid" aria-label="Loading work">
               {[0, 1, 2].map((entry) => (
@@ -1615,9 +1756,15 @@ export default function Portfolio() {
                 </button>
               )}
             </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="empty-state compact-empty">
+              <Search size={30} />
+              <h3>No matching work found.</h3>
+              <p>Try a different keyword or choose another work type.</p>
+            </div>
           ) : (
             <div className="work-grid">
-              {items.map((item, index) => {
+              {filteredItems.map((item, index) => {
                 const itemComments = comments.filter(
                   (entry) => entry.activity_id === item.id,
                 );
@@ -1830,7 +1977,10 @@ export default function Portfolio() {
       </section>
 
       <section
-        className={"section shell mobile-panel mobile-skills" + skillsActive}
+        className={
+          "section shell page-section page-skills-section mobile-panel mobile-skills" +
+          skillsActive
+        }
         id="skills"
       >
         <div className="section-heading skills-heading">
@@ -1894,10 +2044,22 @@ export default function Portfolio() {
             ))}
           </div>
         )}
+        <div className="personal-skills" aria-label="Personal skills">
+          <p className="eyebrow">WORKING STYLE</p>
+          <div>
+            <span>Creative thinking</span>
+            <span>Adaptability</span>
+            <span>Attention to detail</span>
+            <span>Self-directed learning</span>
+          </div>
+        </div>
       </section>
 
       <section
-        className={"reflection mobile-panel mobile-home" + homeActive}
+        className={
+          "reflection page-section page-home-section mobile-panel mobile-home" +
+          homeActive
+        }
         aria-label="Portfolio reflection"
       >
         <div className="shell">
@@ -1910,7 +2072,7 @@ export default function Portfolio() {
 
       <section
         className={
-          "section shell feedback-section mobile-panel mobile-feedback" +
+          "section shell page-section page-contact-section feedback-section mobile-panel mobile-feedback" +
           feedbackActive
         }
         id="feedback"
@@ -2076,7 +2238,10 @@ export default function Portfolio() {
       </section>
 
       <footer
-        className={"mobile-panel mobile-contact" + contactActive}
+        className={
+          "page-section page-contact-section mobile-panel mobile-contact" +
+          contactActive
+        }
         id="contact"
       >
         <div className="shell footer-inner">
@@ -2120,8 +2285,21 @@ export default function Portfolio() {
               Privacy settings
             </button>
           </div>
+          <p className="copyright">
+            © 2026 Carl Anthony Eguizabal. Academic portfolio for IT ELECTIVE 1.
+          </p>
         </div>
       </footer>
+
+      <button
+        className={"back-to-top" + (showBackToTop ? " is-visible" : "")}
+        type="button"
+        data-scroll-top
+        aria-label="Back to top"
+      >
+        <ArrowUp size={18} aria-hidden="true" />
+        <span>Top</span>
+      </button>
 
       {!session && privacyConsent === "unknown" && (
         <aside
@@ -2162,46 +2340,51 @@ export default function Portfolio() {
 
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         <button
-          className={mobileView === "home" ? "active" : ""}
+          className={route === "home" ? "active" : ""}
+          type="button"
           onClick={() => showMobileView("home")}
           aria-label="Home"
-          aria-current={mobileView === "home" ? "page" : undefined}
+          aria-current={route === "home" ? "page" : undefined}
         >
           <Home size={20} />
           <span>Home</span>
         </button>
         <button
-          className={mobileView === "works" ? "active" : ""}
+          className={route === "projects" ? "active" : ""}
+          type="button"
           onClick={() => showMobileView("works")}
           aria-label="Work"
-          aria-current={mobileView === "works" ? "page" : undefined}
+          aria-current={route === "projects" ? "page" : undefined}
         >
           <FolderKanban size={20} />
           <span>Work</span>
         </button>
         <button
-          className={mobileView === "skills" ? "active" : ""}
+          className={route === "skills" ? "active" : ""}
+          type="button"
           onClick={() => showMobileView("skills")}
           aria-label="Skills"
-          aria-current={mobileView === "skills" ? "page" : undefined}
+          aria-current={route === "skills" ? "page" : undefined}
         >
           <Sparkles size={20} />
           <span>Skills</span>
         </button>
         <button
-          className={mobileView === "feedback" ? "active" : ""}
+          className={route === "contact" ? "active" : ""}
+          type="button"
           onClick={() => showMobileView("feedback")}
           aria-label="Feedback"
-          aria-current={mobileView === "feedback" ? "page" : undefined}
+          aria-current={route === "contact" ? "page" : undefined}
         >
           <MessageSquare size={20} />
           <span>Feedback</span>
         </button>
         <button
-          className={mobileView === "contact" ? "active" : ""}
+          className={route === "contact" ? "active" : ""}
+          type="button"
           onClick={() => showMobileView("contact")}
           aria-label="Contact"
-          aria-current={mobileView === "contact" ? "page" : undefined}
+          aria-current={route === "contact" ? "page" : undefined}
         >
           <ContactRound size={20} />
           <span>Contact</span>

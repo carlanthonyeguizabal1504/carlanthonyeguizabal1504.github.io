@@ -34,7 +34,9 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
+        <link rel="stylesheet" href="/style.css" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script src="/script.js" defer />
       </head>
       <body className="antialiased">{children}</body>
     </html>
