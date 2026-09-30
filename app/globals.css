@@ -61,6 +61,120 @@ html {
   background: var(--bg);
 }
 
+
+
+/* Scroll-paced reveals: each content group enters with a different movement. */
+@supports (animation-timeline: view()) {
+  .section-heading {
+    animation: portfolio-scroll-left both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 30%;
+  }
+
+  .about-lead,
+  .work-toolbar,
+  .interest-heading,
+  .working-style-heading,
+  .contact-lead {
+    animation: portfolio-scroll-up both;
+    animation-timeline: view();
+    animation-range: entry 12% cover 34%;
+  }
+
+  .student-info,
+  .project-explorer,
+  .feedback-form {
+    animation: portfolio-scroll-right both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 32%;
+  }
+
+  .interest-grid article,
+  .working-style-grid article {
+    animation: portfolio-scroll-scale both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 34%;
+  }
+
+  .interest-grid article:nth-child(2),
+  .working-style-grid article:nth-child(2) {
+    animation-range: entry 16% cover 40%;
+  }
+
+  .interest-grid article:nth-child(3),
+  .working-style-grid article:nth-child(3) {
+    animation-range: entry 22% cover 46%;
+  }
+
+  .interest-grid article:nth-child(4),
+  .working-style-grid article:nth-child(4) {
+    animation-range: entry 28% cover 52%;
+  }
+
+  .skill-row:nth-child(odd) {
+    animation: portfolio-scroll-left both;
+    animation-timeline: view();
+    animation-range: entry 14% cover 38%;
+  }
+
+  .skill-row:nth-child(even) {
+    animation: portfolio-scroll-right both;
+    animation-timeline: view();
+    animation-range: entry 14% cover 38%;
+  }
+
+  .reflection .shell,
+  .feedback-grid > div,
+  .site-footer-inner {
+    animation: portfolio-scroll-up both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 34%;
+  }
+}
+
+@keyframes portfolio-scroll-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes portfolio-scroll-left {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes portfolio-scroll-right {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes portfolio-scroll-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 body {
   min-width: 320px;
   min-height: 100vh;
