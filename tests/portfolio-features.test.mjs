@@ -48,3 +48,13 @@ test("loads portfolio images without avoidable mobile work", () => {
   assert.match(component, /decoding="async"/);
   assert.match(component, /optimizeImage/);
 });
+
+test("page entrance keeps login and editor dialogs anchored to the viewport", () => {
+  const entrance = css.match(/@keyframes page-enter\s*\{([\s\S]*?)\n\}/)?.[1];
+
+  assert.ok(entrance, "preserves the page entrance animation");
+  assert.match(entrance, /opacity:\s*0/);
+  assert.match(entrance, /opacity:\s*1/);
+  assert.doesNotMatch(entrance, /\b(?:transform|translate|filter|perspective):/);
+  assert.match(css, /\.modal-backdrop\s*\{\s*position:\s*fixed;/);
+});

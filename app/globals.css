@@ -2273,13 +2273,12 @@ footer {
 }
 
 @keyframes page-enter {
+  /* Keep fixed dialogs anchored to the viewport, not the page's full height. */
   from {
     opacity: 0;
-    transform: translateY(14px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
